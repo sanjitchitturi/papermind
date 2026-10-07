@@ -54,17 +54,29 @@ def _warm_models() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.database_url.startswith("sqlite"):
-        from app.db.session import init_db
+    # Keep startup cheap. Render kills a free instance if uvicorn does not
+    # bind during lifespan, and loading ONNX here stacked on Alembic is
+    # how a 512 MB box gets OOM-killed before /health ever answers.
+    try:
+        if settings.database_url.startswith("sqlite"):
+            from app.db.session import init_db
 
-        init_db()
-    else:
-        _run_migrations()
-    n = recover_interrupted_jobs()
-    if n:
-        logger.info("marked %s interrupted jobs as failed", n)
-    ensure_collection()
-    _warm_models()
+            init_db()
+        else:
+            _run_migrations()
+    except Exception:
+        logger.exception("database init failed")
+        raise
+    try:
+        n = recover_interrupted_jobs()
+        if n:
+            logger.info("marked %s interrupted jobs as failed", n)
+    except Exception:
+        logger.exception("job recovery failed")
+    try:
+        ensure_collection()
+    except Exception:
+        logger.exception("qdrant collection not ready; retrieval will fail until it is")
     yield
 
 

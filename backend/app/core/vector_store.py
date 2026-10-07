@@ -87,16 +87,17 @@ def collection_name(embedder_name: str | None = None, dim: int | None = None) ->
 
 
 def ensure_collection() -> str:
-    from app.ml.embeddings import get_embedder
+    from app.ml.registry import DENSE_MODELS
 
-    embedder = get_embedder()
-    name = collection_name(embedder.name, embedder.dim)
+    settings = get_settings()
+    spec = DENSE_MODELS[settings.embedding_model]
+    name = collection_name(spec.key, spec.dim)
     client = get_client()
     if client.collection_exists(name):
         return name
     client.create_collection(
         collection_name=name,
-        vectors_config={DENSE: VectorParams(size=embedder.dim, distance=Distance.COSINE)},
+        vectors_config={DENSE: VectorParams(size=spec.dim, distance=Distance.COSINE)},
         sparse_vectors_config={SPARSE: SparseVectorParams(modifier=Modifier.IDF)},
     )
     # Retrieval is often scoped to one or a few papers, an index on the
