@@ -21,7 +21,9 @@ from openai import (
     APIConnectionError,
     APITimeoutError,
     AuthenticationError,
+    BadRequestError,
     InternalServerError,
+    NotFoundError,
     OpenAI,
     PermissionDeniedError,
     RateLimitError,
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 _client: OpenAI | None = None
 _client_lock = threading.Lock()
 
-_TRANSIENT = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+_TRANSIENT = (APIConnectionError, APITimeoutError, InternalServerError)
 
 # Reasoning models reject custom temperatures and use max_completion_tokens.
 _REASONING_MODEL = re.compile(r"^(o\d|gpt-5)", re.IGNORECASE)
@@ -104,7 +106,7 @@ def _create(messages: list[dict], json_mode: bool, **kwargs) -> str:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         response = get_client().chat.completions.create(messages=messages, **kwargs)
-    except (AuthenticationError, PermissionDeniedError) as exc:
+    except (AuthenticationError, PermissionDeniedError, RateLimitError, NotFoundError, BadRequestError) as exc:
         raise LLMProviderError(f"The LLM provider rejected the request: {exc.message}") from exc
     return response.choices[0].message.content or ""
 
