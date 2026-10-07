@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 const LINKS = [
-  { to: "/", label: "Search" },
+  { to: "/search", label: "Search" },
   { to: "/chat", label: "Chat" },
   { to: "/integrity", label: "Citation Integrity" },
   { to: "/graph", label: "Knowledge Graph" },
@@ -12,9 +12,9 @@ const LINKS = [
 export function NavBar() {
   return (
     <nav className="flex items-center gap-1 border-b border-neutral-200 bg-white px-6 py-4">
-      <span className="mr-10 font-serif text-xl font-semibold tracking-tight text-neutral-950">
+      <NavLink to="/" end className="mr-10 font-serif text-xl font-semibold tracking-tight text-neutral-950">
         PaperMind
-      </span>
+      </NavLink>
       {LINKS.map((link) => (
         <NavLink
           key={link.to}

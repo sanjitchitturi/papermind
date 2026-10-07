@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { NavBar } from "./components/NavBar";
+import { Home } from "./pages/Home";
 import { Search } from "./pages/Search";
 import { PaperChat } from "./pages/PaperChat";
 import { CitationIntegrity } from "./pages/CitationIntegrity";
@@ -12,7 +13,8 @@ export function App() {
     <div className="min-h-screen bg-white font-sans text-neutral-950">
       <NavBar />
       <Routes>
-        <Route path="/" element={<Search />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/chat" element={<PaperChat />} />
         <Route path="/integrity" element={<CitationIntegrity />} />
         <Route path="/graph" element={<KnowledgeGraph />} />
