@@ -72,8 +72,11 @@ def get_reranker() -> Reranker | None:
     if not _reranker_loaded:
         with _init_lock:
             if not _reranker_loaded:
-                key = get_settings().reranker_model.strip()
-                _reranker = CrossEncoderReranker(key) if key else None
+                key = get_settings().reranker_model.strip().lower()
+                if key in {"", "none", "off", "disabled"}:
+                    _reranker = None
+                else:
+                    _reranker = CrossEncoderReranker(key)
                 _reranker_loaded = True
     return _reranker
 

@@ -79,7 +79,12 @@ def retrieve(
     ranked = sorted(merged.values(), key=lambda h: h.score, reverse=True)[:candidates]
     passages = [_to_passage(h) for h in ranked]
     if use_reranker:
-        passages = rerank_passages(question, passages)
+        try:
+            passages = rerank_passages(question, passages)
+        except Exception:  # noqa: BLE001
+            # Free-tier boxes OOM if the cross-encoder loads on top of the
+            # embedder. Hybrid RRF still returns a ranked list.
+            pass
     return passages[: settings.context_passages]
 
 
