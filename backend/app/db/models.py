@@ -10,10 +10,18 @@ whole project runs on free-tier infra without adding another moving part.
 """
 
 import enum
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
+
+
+def utcnow() -> datetime:
+    # SQLAlchemy's TIMESTAMP WITH TIME ZONE column type (which SQLModel
+    # uses for datetime fields) rejects naive datetimes as of recent
+    # versions, datetime.utcnow() returns a naive one even though the name
+    # suggests otherwise. This is the timezone-aware equivalent.
+    return datetime.now(UTC)
 
 
 class PaperSource(str, enum.Enum):
@@ -55,7 +63,7 @@ class Paper(SQLModel, table=True):
     source: PaperSource
     pdf_path: str | None = None
     num_pages: int | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Chunk(SQLModel, table=True):
@@ -97,7 +105,7 @@ class CitationVerification(SQLModel, table=True):
     evidence_text: str = ""
     judge_rationale: str = ""
     confidence: float = 0.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Contradiction(SQLModel, table=True):
@@ -106,7 +114,7 @@ class Contradiction(SQLModel, table=True):
     claim_b_id: UUID = Field(foreign_key="claim.id")
     explanation: str
     confidence: float = 0.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class GraphEntity(SQLModel, table=True):
@@ -131,8 +139,8 @@ class IngestionJob(SQLModel, table=True):
     status: JobStatus = JobStatus.queued
     stage: str = ""
     error: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class AnswerRecord(SQLModel, table=True):
@@ -145,7 +153,7 @@ class AnswerRecord(SQLModel, table=True):
     trust_score: int = 0
     trust_explanation: str = ""
     abstained: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Feedback(SQLModel, table=True):
@@ -153,7 +161,7 @@ class Feedback(SQLModel, table=True):
     answer_id: UUID = Field(foreign_key="answerrecord.id")
     rating: int  # +1 thumbs up, -1 thumbs down
     comment: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class EvalRun(SQLModel, table=True):
@@ -161,4 +169,4 @@ class EvalRun(SQLModel, table=True):
     commit_sha: str = "local"
     pipeline_config: str = "full"  # e.g. "baseline", "hybrid_only", "full"
     metrics_json: str  # json.dumps of the metrics dict, kept simple on purpose
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

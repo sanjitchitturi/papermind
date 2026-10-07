@@ -5,6 +5,7 @@ __pycache__/
 backend/storage/
 .pytest_cache/
 .ruff_cache/
+.devdata/
 
 # Node
 frontend/node_modules/

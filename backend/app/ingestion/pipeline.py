@@ -23,9 +23,12 @@ settings = get_settings()
 
 
 def _update_job(session: Session, job: IngestionJob, status: JobStatus, stage: str, error: str | None = None) -> None:
+    from app.db.models import utcnow
+
     job.status = status
     job.stage = stage
     job.error = error
+    job.updated_at = utcnow()
     session.add(job)
     session.commit()
 
