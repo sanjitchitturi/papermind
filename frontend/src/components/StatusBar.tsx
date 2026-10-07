@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, type Capabilities, type Health } from "../api/client";
 
+function rerankLabel(model: string) {
+  if (!model || model === "none" || model === "off" || model === "disabled") return "Reranker off";
+  return model;
+}
+
 export function StatusBar() {
   const [caps, setCaps] = useState<Capabilities | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
@@ -29,7 +34,7 @@ export function StatusBar() {
             <span>
               {caps.embedding_model} · {caps.embedding_dim}d
             </span>
-            <span>{caps.reranker_model}</span>
+            <span>{rerankLabel(caps.reranker_model)}</span>
             <span>{caps.llm_configured ? `LLM ${caps.llm_model}` : "Extractive mode"}</span>
             <span className="md:ml-auto">
               {caps.papers}/{caps.max_papers} papers · {caps.chunks_indexed} chunks

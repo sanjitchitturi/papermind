@@ -6,10 +6,11 @@ A retrieval system for research papers that does more than chat with a PDF.
 **API:** [papermind-api-laof.onrender.com/docs](https://papermind-api-laof.onrender.com/docs)
 **Source:** [github.com/sanjitchitturi/papermind](https://github.com/sanjitchitturi/papermind)
 
-Retrieval and reranking run on local int8 ONNX models. Generation, citation
-integrity, and multi-paper research mode are optional and use any
-OpenAI-compatible API when a key is present. Without a key the system still
-searches, reranks, and returns extractive answers.
+Dense retrieval and BM25 run on local int8 ONNX models. A MiniLM cross-encoder
+is in the stack and is measured locally; the live API leaves it off so the
+process fits in 512 MB. Generation, citation integrity, and research mode use
+any OpenAI-compatible API. If that call fails, or no key is set, chat still
+returns the ranked passages as quotes.
 
 ---
 
@@ -21,9 +22,10 @@ dozen GitHub demos already do. PaperMind keeps that core and adds the pieces
 those tools typically skip.
 
 1. **Hybrid retrieval with a measured reranker.** Dense + BM25 fused with
-   reciprocal rank fusion, then a cross-encoder over the fused candidates.
-   The eval dashboard reports dense, sparse, hybrid, and hybrid+rerank as
-   separate ablations. If the reranker does not move MRR, that shows up.
+   reciprocal rank fusion, then an optional cross-encoder over the fused
+   candidates. The eval dashboard reports dense, sparse, hybrid, and
+   hybrid+rerank as separate ablations. The live service reports the first
+   three, because the reranker is off there.
 2. **Citation integrity.** For each in-text citation, extract the claim
    attributed to the cited work, retrieve a passage from that work if it is
    in the library, and judge support. Unresolved citations stay unresolved.
@@ -49,8 +51,8 @@ PDF / arXiv
     -> parse, clean, section-aware sentence chunks
     -> local dense encoder + BM25 sparse vectors
     -> Qdrant (RRF fusion)
-    -> MiniLM cross-encoder rerank
-    -> extractive quotes  or  LLM generation + citation verify + trust
+    -> optional MiniLM cross-encoder rerank
+    -> extractive quotes, or LLM generation + citation verify + trust
 Postgres holds papers, chunks, claims, citation checks, entities,
 paper_entities, paper_citations, jobs, answers, eval_runs.
 ```
@@ -77,17 +79,22 @@ React, Vite, Tailwind. Frontend on Vercel. API on Render (Docker, 512 MB).
 
 ## Models
 
-Chosen so the whole API, including ONNX sessions, fits on Render's free plan
-(512 MB). Weights are int8 quantized. Embedding inference is serialized
-behind a lock: two forward passes at once on 0.1 CPU only stack activation
-memory.
+Weights are int8. Embedding inference is serialized and runs one chunk at a
+time. Two ONNX sessions do not fit next to FastAPI on Render's free plan
+(512 MB), so production sets `LOW_MEMORY=true`, which forces
+`RERANKER_MODEL=none`.
 
-| Role | Model | Size | Notes |
+| Role | Model | Size | Where it runs |
 | --- | --- | --- | --- |
-| Dense retrieval | `Snowflake/snowflake-arctic-embed-xs` int8 | 23 MB ONNX, 384-d | Query prefix applied. Cosine vs fp32 ~0.998 on held-out sentences. |
-| Sparse retrieval | `Qdrant/bm25` | tokenizer only | Document vectors are term frequencies; Qdrant applies IDF. Queries use `query_embed`. |
-| Rerank | `Xenova/ms-marco-MiniLM-L-6-v2` int8 | 23 MB ONNX | Cross-encoder over the top 12 fused hits. Sigmoid of the logit feeds the trust score. |
-| Generation (optional) | any OpenAI-compatible chat model | remote | Default `gpt-4.1-mini`. Groq, Together, OpenRouter, Ollama all work via `LLM_BASE_URL`. |
+| Dense retrieval | `Snowflake/snowflake-arctic-embed-xs` int8 | 23 MB ONNX, 384-d | Always. Query prefix applied. Cosine vs fp32 ~0.998. |
+| Sparse retrieval | `Qdrant/bm25` | tokenizer only | Always. Documents store term frequencies; Qdrant applies IDF. Queries use `query_embed`. |
+| Rerank | `Xenova/ms-marco-MiniLM-L-6-v2` int8 | 23 MB ONNX | Local and larger hosts. Off on the live API. |
+| Generation | OpenAI-compatible chat | remote | Default `gpt-4o-mini`. Groq, Together, OpenRouter, and Ollama work via `LLM_BASE_URL`. |
+
+The live API currently serves Arctic Embed XS, BM25, no reranker, and
+`gpt-4o-mini` when the provider accepts the request. A quota or auth failure
+on chat falls back to extractive quotes instead of a 500. Integrity and
+research mode still require a working generation call.
 
 To swap models, set `EMBEDDING_MODEL` / `RERANKER_MODEL` to keys in
 `backend/app/ml/registry.py`. Collection names include the embedder name and
@@ -100,10 +107,10 @@ not download models on the first request.
 
 ## Retrieval pipeline
 
-1. Optional query rewrite (LLM only; skipped in extractive mode).
+1. Optional query rewrite (LLM only; skipped when generation is unavailable).
 2. Dense search + BM25 search, fused with RRF inside Qdrant.
-3. Cross-encoder rerank of the fused list.
-4. Top passages go to generation or, with no LLM, are returned as quotes.
+3. Cross-encoder rerank of the fused list, when a reranker is loaded.
+4. Top passages go to generation, or are returned as quotes.
 5. Citation verification (generative mode) and trust scoring.
 
 Chunking is section-aware and cuts on sentence boundaries, with a trailing
@@ -121,6 +128,7 @@ The 0-100 score is a weighted combination of:
 
 - **Retrieval margin:** gap between the top hit and the next distinct paper.
 - **Rerank confidence:** sigmoid of the MiniLM logit on the top passage.
+  Neutral (0.5) when the reranker is off.
 - **Citation pass rate:** share of generated citations that verify against
   retrieved text (1.0 in extractive mode, because the answer *is* the text).
 - **Self-consistency:** agreement across a second sampled generation when an
@@ -152,6 +160,11 @@ The three papers are easy to tell apart, so first-stage retrieval already
 puts the right paper first. The reranker is still the right architecture
 for a mixed library; on this seed it slightly reorders one question, which
 is why the number is in the table instead of being rounded away.
+
+The same 10 questions, run on the live API with the reranker off (commit
+`975a88d`): dense, BM25, and hybrid RRF are all MRR 1.00, Hit@5 1.00,
+nDCG@10 1.00. That run has no hybrid+rerank row, because the model is not
+loaded.
 
 Grow `backend/app/eval/eval_dataset.json` as the library grows. Trigger a
 run from `/eval` or:
@@ -272,9 +285,12 @@ QDRANT_API_KEY
 CORS_ORIGINS=["https://thepapermind.vercel.app"]
 CORS_ORIGIN_REGEX=https://.*\.vercel\.app
 EMBEDDING_MODEL=arctic-embed-xs-int8
-RERANKER_MODEL=ms-marco-minilm-l6-int8
+RERANKER_MODEL=none
+LOW_MEMORY=true
+ML_BATCH_SIZE=1
 MODEL_CACHE_DIR=/app/.models
-LLM_API_KEY          # optional
+LLM_API_KEY          # optional; needs a funded account
+LLM_MODEL=gpt-4o-mini
 ```
 
 Blueprint: `render.yaml`. Migrations run on API startup. Interrupted jobs
@@ -292,6 +308,8 @@ sleep is slow; `/health` is the right warmup.
   without a paid key.
 - One job worker. Render free is 0.1 CPU; parallel ONNX is a memory
   regression, not a speedup.
+- One ONNX session on the free API. The reranker stays in the code and in
+  the local eval table. Production does not load it.
 - Honest evals. A seed of three famous papers is too easy for first-stage
   retrieval. The table reports the rerank drop instead of hiding it.
 - Monochrome UI. The product is a research tool, not a dashboard template.
@@ -304,8 +322,9 @@ Not a hosted research product. Not a replacement for reading the papers.
 The eval set is a seed (10 questions on three well-known papers), enough to
 prove the ablation pipeline, not enough to claim SOTA retrieval.
 
-Integrity and research mode require an LLM key. Without one, chat still
-works in extractive mode: the answer is the ranked passages.
+Integrity and research mode require a working LLM call. Chat does not: with
+no key, or when the provider rejects the request, the answer is the ranked
+passages.
 
 ---
 

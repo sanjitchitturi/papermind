@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # OPENAI_API_KEY is accepted as an alias so existing setups keep working.
     llm_api_key: str = Field("", validation_alias=AliasChoices("LLM_API_KEY", "OPENAI_API_KEY"))
     llm_base_url: str | None = None
-    llm_model: str = "gpt-4.1-mini"
+    llm_model: str = "gpt-4o-mini"
     llm_judge_model: str | None = None
     llm_timeout_seconds: float = 60.0
 

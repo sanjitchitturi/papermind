@@ -7,9 +7,12 @@ extractive answer: the highest-scoring passages, quoted, with enough
 context that the user can still use the system as a search engine.
 """
 
+import logging
 from dataclasses import dataclass
 
-from app.core.llm import chat, llm_available
+from app.core.llm import LLMProviderError, chat, llm_available
+
+logger = logging.getLogger(__name__)
 from app.retrieval.hybrid_search import Passage
 
 ANSWER_SYSTEM = """You are a research assistant answering questions from academic papers.
@@ -62,12 +65,15 @@ def generate_answer(question: str, passages: list[Passage], temperature: float =
         block = "\n\n".join(
             f"[{s.index}] ({s.paper_title}, {s.section}, p.{s.page}): {s.text}" for s in sources
         )
-        answer = chat(
-            [{"role": "user", "content": ANSWER_PROMPT.format(passages=block, question=question)}],
-            temperature=temperature,
-            system=ANSWER_SYSTEM,
-        )
-        return GeneratedAnswer(answer=answer, sources=sources, mode="generative")
+        try:
+            answer = chat(
+                [{"role": "user", "content": ANSWER_PROMPT.format(passages=block, question=question)}],
+                temperature=temperature,
+                system=ANSWER_SYSTEM,
+            )
+            return GeneratedAnswer(answer=answer, sources=sources, mode="generative")
+        except LLMProviderError as exc:
+            logger.warning("generation failed, falling back to extractive quotes: %s", exc)
     return GeneratedAnswer(answer=_extractive(question, sources), sources=sources, mode="extractive")
 
 

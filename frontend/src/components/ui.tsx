@@ -31,7 +31,9 @@ export function Button({
     <button
       {...props}
       className={`shrink-0 border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${styles} ${props.className ?? ""}`}
-    />
+    >
+      {children}
+    </button>
   );
 }
 

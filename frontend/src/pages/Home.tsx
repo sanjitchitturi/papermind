@@ -4,14 +4,14 @@ import { Page } from "../components/ui";
 const STATS = [
   { value: "384-d", label: "Arctic Embed XS, int8 ONNX" },
   { value: "RRF", label: "Dense + BM25 fused in Qdrant" },
-  { value: "0.96", label: "nDCG@10, hybrid + rerank" },
-  { value: "0.95", label: "MRR after MiniLM rerank" },
+  { value: "1.00", label: "Hybrid MRR on the seed set" },
+  { value: "512 MB", label: "Live API leaves the reranker off" },
 ];
 
 const DIFFERENTIATORS = [
   {
-    title: "Hybrid retrieval that actually reranks",
-    body: "First-stage search fuses a local dense encoder (Snowflake Arctic Embed XS, int8 ONNX) with BM25 sparse vectors inside Qdrant via reciprocal rank fusion. A MiniLM cross-encoder then reranks the fused candidates. The eval dashboard reports dense, sparse, hybrid, and hybrid+rerank as separate ablations so those stages are measured, not assumed.",
+    title: "Hybrid retrieval, with a measured reranker",
+    body: "First-stage search fuses a local dense encoder (Snowflake Arctic Embed XS, int8 ONNX) with BM25 sparse vectors inside Qdrant via reciprocal rank fusion. A MiniLM cross-encoder can rerank the fused candidates. The live API leaves that second model off so the process fits in 512 MB. Locally, and on a larger box, the eval dashboard reports dense, sparse, hybrid, and hybrid+rerank separately.",
   },
   {
     title: "Citation Integrity Engine",
@@ -26,16 +26,16 @@ const DIFFERENTIATORS = [
 const PIPELINE = [
   { label: "Parse", detail: "Section detection, header stripping, hyphen repair, sentence-aware chunks" },
   { label: "Index", detail: "Local dense + BM25 sparse vectors in Qdrant, IDF applied server-side" },
-  { label: "Retrieve", detail: "RRF fusion, then a cross-encoder over the top candidates" },
-  { label: "Answer", detail: "Cited generation when an LLM is configured, extractive quotes otherwise" },
+  { label: "Retrieve", detail: "RRF fusion. Cross-encoder rerank when memory allows" },
+  { label: "Answer", detail: "Cited generation when the LLM call succeeds, quoted passages otherwise" },
   { label: "Verify", detail: "Citation checks, trust scoring, abstention below threshold" },
 ];
 
 const MODELS = [
   { role: "Dense", name: "snowflake-arctic-embed-xs", note: "23 MB int8, query prefix, cosine ~0.998 vs fp32" },
   { role: "Sparse", name: "Qdrant/bm25", note: "Term frequencies in the collection; IDF at query time" },
-  { role: "Rerank", name: "ms-marco-MiniLM-L-6-v2", note: "Cross-encoder over the top 12 fused hits" },
-  { role: "Generate", name: "optional OpenAI-compatible", note: "Extractive quotes if no key is set" },
+  { role: "Rerank", name: "ms-marco-MiniLM-L-6-v2", note: "Optional. Off on the 512 MB deploy" },
+  { role: "Generate", name: "gpt-4o-mini or compatible", note: "Quoted passages if the call fails or no key is set" },
 ];
 
 export function Home() {
@@ -49,9 +49,10 @@ export function Home() {
           A paper assistant that checks its own work.
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-relaxed text-neutral-700">
-          PaperMind is a retrieval system for academic papers. Retrieval and reranking run entirely on
-          local ONNX models, so the demo works without a generation bill. Chat, citation integrity, and
-          research mode light up when you add any OpenAI-compatible API key.
+          PaperMind is a retrieval system for academic papers. Dense retrieval and BM25 run on local
+          ONNX models. The MiniLM reranker is in the codebase and measured locally; the free API leaves
+          it off. Chat falls back to quoted passages if generation is unavailable. Integrity and research
+          mode need a funded OpenAI-compatible key.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
