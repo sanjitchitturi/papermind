@@ -56,38 +56,38 @@ export function Search() {
   }, [jobs]);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-12 px-6 py-12">
       <section>
-        <h2 className="mb-2 text-lg font-semibold">Search arXiv</h2>
+        <h2 className="mb-4 font-serif text-2xl text-neutral-950">Search arXiv</h2>
         <div className="flex gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && runSearch()}
             placeholder="e.g. retrieval augmented generation"
-            className="flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+            className="flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950 placeholder:text-neutral-400"
           />
           <button
             onClick={runSearch}
             disabled={searching}
-            className="rounded bg-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+            className="border border-neutral-950 bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
           >
             {searching ? "Searching..." : "Search"}
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-6 flex flex-col gap-4">
           {results.map((paper) => (
-            <div key={paper.arxiv_id} className="rounded border border-gray-700 bg-gray-900 p-3">
-              <div className="flex items-start justify-between gap-3">
+            <div key={paper.arxiv_id} className="border border-neutral-200 p-4">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium">{paper.title}</p>
-                  <p className="text-xs text-gray-400">{paper.authors.join(", ")}</p>
-                  <p className="mt-1 text-sm text-gray-300">{paper.abstract.slice(0, 220)}...</p>
+                  <p className="font-serif text-base text-neutral-950">{paper.title}</p>
+                  <p className="mt-1 text-xs text-neutral-500">{paper.authors.join(", ")}</p>
+                  <p className="mt-2 text-sm text-neutral-700">{paper.abstract.slice(0, 220)}...</p>
                 </div>
                 <button
                   onClick={() => ingestArxivPaper(paper.arxiv_id)}
-                  className="shrink-0 rounded border border-blue-600 px-3 py-1 text-xs text-blue-300 hover:bg-blue-900"
+                  className="shrink-0 border border-neutral-950 px-3 py-1 text-xs font-medium text-neutral-950 hover:bg-neutral-950 hover:text-white"
                 >
                   Ingest
                 </button>
@@ -98,25 +98,28 @@ export function Search() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold">Or upload a PDF</h2>
-        <input type="file" accept="application/pdf" onChange={handleUpload} className="text-sm" />
+        <h2 className="mb-4 font-serif text-2xl text-neutral-950">Or upload a PDF</h2>
+        <input type="file" accept="application/pdf" onChange={handleUpload} className="text-sm text-neutral-700" />
       </section>
 
       {Object.keys(jobs).length > 0 && (
         <section>
-          <h2 className="mb-2 text-lg font-semibold">Ingestion jobs</h2>
+          <h2 className="mb-4 font-serif text-2xl text-neutral-950">Ingestion jobs</h2>
           <div className="flex flex-col gap-2">
             {Object.values(jobs).map((job) => (
-              <div key={job.job_id} className="flex items-center justify-between rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm">
-                <span className="font-mono text-xs text-gray-400">{job.job_id.slice(0, 8)}</span>
-                <span>{job.stage ?? "queued"}</span>
+              <div
+                key={job.job_id}
+                className="flex items-center justify-between border border-neutral-200 px-3 py-2 text-sm"
+              >
+                <span className="font-mono text-xs text-neutral-400">{job.job_id.slice(0, 8)}</span>
+                <span className="text-neutral-700">{job.stage ?? "queued"}</span>
                 <span
                   className={
                     job.status === "done"
-                      ? "text-green-400"
+                      ? "font-medium text-neutral-950"
                       : job.status === "failed"
-                        ? "text-red-400"
-                        : "text-yellow-400"
+                        ? "font-medium text-neutral-950 underline"
+                        : "text-neutral-500"
                   }
                 >
                   {job.status ?? "queued"}

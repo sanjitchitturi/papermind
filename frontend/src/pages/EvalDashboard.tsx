@@ -2,6 +2,16 @@ import { useEffect, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, type EvalRunSummary } from "../api/client";
 
+// recharts needs literal stroke values, Tailwind classes don't apply to
+// SVG stroke attributes. Each series gets a distinct grayscale shade AND
+// a distinct dash pattern, since color alone can no longer tell them apart.
+const SERIES = [
+  { key: "hit_rate", stroke: "#0a0a0a", dash: undefined },
+  { key: "mrr", stroke: "#404040", dash: "6 3" },
+  { key: "keyword_match", stroke: "#737373", dash: "2 2" },
+  { key: "citation_pass_rate", stroke: "#a3a3a3", dash: "8 3 2 3" },
+] as const;
+
 export function EvalDashboard() {
   const [history, setHistory] = useState<EvalRunSummary[]>([]);
   const [running, setRunning] = useState(false);
@@ -38,21 +48,21 @@ export function EvalDashboard() {
   const latest = history[history.length - 1];
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Eval dashboard</h2>
+        <h2 className="font-serif text-2xl text-neutral-950">Eval dashboard</h2>
         <div className="flex gap-2">
           <button
             onClick={() => triggerRun("baseline")}
             disabled={running}
-            className="rounded border border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-800 disabled:opacity-50"
+            className="border border-neutral-300 px-3 py-1.5 text-sm text-neutral-800 hover:border-neutral-950 hover:text-neutral-950 disabled:opacity-40"
           >
             Run baseline
           </button>
           <button
             onClick={() => triggerRun("full")}
             disabled={running}
-            className="rounded bg-blue-700 px-3 py-1.5 text-sm hover:bg-blue-600 disabled:opacity-50"
+            className="border border-neutral-950 bg-neutral-950 px-3 py-1.5 text-sm text-white hover:bg-neutral-800 disabled:opacity-40"
           >
             Run full pipeline
           </button>
@@ -60,35 +70,34 @@ export function EvalDashboard() {
       </div>
 
       {latest && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-px border border-neutral-200 bg-neutral-200">
           {Object.entries(latest.metrics)
             .filter(([key]) => key !== "num_questions")
             .map(([key, value]) => (
-              <div key={key} className="rounded border border-gray-700 bg-gray-900 p-3">
-                <p className="text-xs text-gray-400">{key.replace(/_/g, " ")}</p>
-                <p className="text-xl font-semibold">{(value * 100).toFixed(1)}%</p>
+              <div key={key} className="bg-white p-4">
+                <p className="text-xs text-neutral-500">{key.replace(/_/g, " ")}</p>
+                <p className="font-serif text-2xl text-neutral-950">{(value * 100).toFixed(1)}%</p>
               </div>
             ))}
         </div>
       )}
 
-      <div className="h-80 rounded border border-gray-800 bg-gray-900 p-4">
+      <div className="h-80 border border-neutral-200 p-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="label" stroke="#9ca3af" fontSize={11} />
-            <YAxis domain={[0, 1]} stroke="#9ca3af" fontSize={11} />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
+            <CartesianGrid strokeDasharray="2 2" stroke="#e5e5e5" />
+            <XAxis dataKey="label" stroke="#a3a3a3" fontSize={11} />
+            <YAxis domain={[0, 1]} stroke="#a3a3a3" fontSize={11} />
+            <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #d4d4d4", color: "#0a0a0a" }} />
             <Legend />
-            <Line type="monotone" dataKey="hit_rate" stroke="#2563eb" />
-            <Line type="monotone" dataKey="mrr" stroke="#16a34a" />
-            <Line type="monotone" dataKey="keyword_match" stroke="#d97706" />
-            <Line type="monotone" dataKey="citation_pass_rate" stroke="#9333ea" />
+            {SERIES.map((series) => (
+              <Line key={series.key} type="monotone" dataKey={series.key} stroke={series.stroke} strokeDasharray={series.dash} dot={{ r: 2 }} />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-neutral-500">
         "baseline" runs retrieval without query rewriting and skips reranking, useful for seeing how much the
         advanced retrieval pipeline actually improves things rather than just assuming it does.
       </p>

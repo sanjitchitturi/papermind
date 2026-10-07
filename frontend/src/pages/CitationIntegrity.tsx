@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { api, type ContradictionRow, type IntegrityReport } from "../api/client";
 
-const VERDICT_COLORS: Record<string, string> = {
-  supported: "text-green-400",
-  partially_supported: "text-yellow-400",
-  unsupported: "text-orange-400",
-  contradicted: "text-red-400",
-  unresolved: "text-gray-500",
+// No color coding, each verdict gets a distinct text treatment instead so
+// the distinction survives in a strictly monochrome UI.
+const VERDICT_STYLES: Record<string, string> = {
+  supported: "font-semibold text-neutral-950",
+  partially_supported: "font-medium text-neutral-700 italic",
+  unsupported: "font-semibold text-neutral-950 underline",
+  contradicted: "font-bold text-neutral-950 underline",
+  unresolved: "text-neutral-400 italic",
 };
 
 export function CitationIntegrity() {
@@ -43,10 +45,10 @@ export function CitationIntegrity() {
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-10 p-6">
+    <div className="mx-auto flex max-w-3xl flex-col gap-16 px-6 py-12">
       <section>
-        <h2 className="mb-2 text-lg font-semibold">Per-paper citation integrity</h2>
-        <p className="mb-3 text-sm text-gray-400">
+        <h2 className="mb-2 font-serif text-2xl text-neutral-950">Per-paper citation integrity</h2>
+        <p className="mb-4 text-sm text-neutral-600">
           Checks whether each in-text citation in this paper is actually supported by what the cited work says.
         </p>
         <div className="flex gap-2">
@@ -54,35 +56,37 @@ export function CitationIntegrity() {
             value={paperId}
             onChange={(e) => setPaperId(e.target.value)}
             placeholder="Paper id"
-            className="flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+            className="flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950 placeholder:text-neutral-400"
           />
           <button
             onClick={checkPaper}
             disabled={loading}
-            className="rounded bg-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+            className="border border-neutral-950 bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
           >
             Run check
           </button>
         </div>
 
         {report && (
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-6 flex flex-col gap-3">
             {report.integrity_score !== null && (
-              <p className="text-sm">
-                Integrity score: <span className="font-semibold">{report.integrity_score}%</span> of resolvable
-                citations were fully supported.
+              <p className="text-sm text-neutral-800">
+                Integrity score: <span className="font-semibold text-neutral-950">{report.integrity_score}%</span>{" "}
+                of resolvable citations were fully supported.
               </p>
             )}
             {report.citations.map((row, i) => (
-              <div key={i} className="rounded border border-gray-800 bg-gray-900 p-3 text-sm">
-                <p className="text-gray-200">
-                  Claim: <span className="italic">"{row.claim}"</span>
+              <div key={i} className="border border-neutral-200 p-3 text-sm">
+                <p className="text-neutral-800">
+                  Claim: <span className="italic">&ldquo;{row.claim}&rdquo;</span>
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Citation [{row.citation_marker}]: {row.cited_reference}</p>
-                <p className={`mt-1 font-semibold ${VERDICT_COLORS[row.verdict] ?? "text-gray-400"}`}>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Citation [{row.citation_marker}]: {row.cited_reference}
+                </p>
+                <p className={`mt-1 ${VERDICT_STYLES[row.verdict] ?? "text-neutral-600"}`}>
                   {row.verdict.replace("_", " ")}
                 </p>
-                {row.rationale && <p className="mt-1 text-xs text-gray-400">{row.rationale}</p>}
+                {row.rationale && <p className="mt-1 text-xs text-neutral-500">{row.rationale}</p>}
               </div>
             ))}
           </div>
@@ -90,24 +94,25 @@ export function CitationIntegrity() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold">Corpus-wide contradictions</h2>
-        <p className="mb-3 text-sm text-gray-400">
+        <h2 className="mb-2 font-serif text-2xl text-neutral-950">Corpus-wide contradictions</h2>
+        <p className="mb-4 text-sm text-neutral-600">
           Scans claims across every ingested paper for pairs that disagree on the same topic.
         </p>
         <button
           onClick={scanCorpus}
           disabled={loading}
-          className="rounded bg-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+          className="border border-neutral-950 bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
         >
           Scan corpus
         </button>
 
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-6 flex flex-col gap-3">
           {contradictions.map((row, i) => (
-            <div key={i} className="rounded border border-red-900 bg-gray-900 p-3 text-sm">
-              <p className="text-gray-200">A: "{row.claim_a}"</p>
-              <p className="mt-1 text-gray-200">B: "{row.claim_b}"</p>
-              <p className="mt-2 text-red-300">{row.explanation}</p>
+            <div key={i} className="border border-neutral-950 p-3 text-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-950">Contradiction</p>
+              <p className="mt-2 text-neutral-800">A: &ldquo;{row.claim_a}&rdquo;</p>
+              <p className="mt-1 text-neutral-800">B: &ldquo;{row.claim_b}&rdquo;</p>
+              <p className="mt-2 text-neutral-950">{row.explanation}</p>
             </div>
           ))}
         </div>

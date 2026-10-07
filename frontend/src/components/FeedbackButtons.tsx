@@ -21,23 +21,17 @@ export function FeedbackButtons({ answerId }: Props) {
   }
 
   if (submitted) {
-    return <p className="text-xs text-gray-500">Thanks for the feedback.</p>;
+    return <p className="text-xs text-neutral-500">Thanks for the feedback.</p>;
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500">Was this answer helpful?</span>
-      <button
-        onClick={() => submit(1)}
-        className="rounded border border-gray-700 px-2 py-1 text-xs hover:bg-gray-800"
-      >
-        Yes
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-neutral-500">Was this answer helpful?</span>
+      <button onClick={() => submit(1)} className="text-xs text-neutral-700 underline hover:text-neutral-950">
+        Helpful
       </button>
-      <button
-        onClick={() => submit(-1)}
-        className="rounded border border-gray-700 px-2 py-1 text-xs hover:bg-gray-800"
-      >
-        No
+      <button onClick={() => submit(-1)} className="text-xs text-neutral-700 underline hover:text-neutral-950">
+        Not helpful
       </button>
     </div>
   );

@@ -3,13 +3,17 @@ import ReactFlow, { Background, Controls, type Edge, type Node } from "reactflow
 import "reactflow/dist/style.css";
 import { api, type GraphData } from "../api/client";
 
-const TYPE_COLORS: Record<string, string> = {
-  method: "#2563eb",
-  dataset: "#16a34a",
-  metric: "#d97706",
-  model: "#9333ea",
-  author: "#64748b",
-  institution: "#64748b",
+// reactflow needs literal style values, Tailwind classes don't reach into
+// its inline node styles. Entity types are told apart by grayscale shade
+// AND border style together, since shade alone is hard to distinguish at
+// a glance once there are more than two or three levels.
+const TYPE_STYLE: Record<string, { background: string; color: string; borderStyle: string }> = {
+  method: { background: "#0a0a0a", color: "#ffffff", borderStyle: "solid" },
+  dataset: { background: "#ffffff", color: "#0a0a0a", borderStyle: "solid" },
+  metric: { background: "#ffffff", color: "#0a0a0a", borderStyle: "dashed" },
+  model: { background: "#404040", color: "#ffffff", borderStyle: "solid" },
+  author: { background: "#ffffff", color: "#525252", borderStyle: "dotted" },
+  institution: { background: "#ffffff", color: "#525252", borderStyle: "dotted" },
 };
 
 // Simple circular layout. A proper graph layout library (dagre, elk) would
@@ -29,15 +33,18 @@ function layoutNodes(graph: GraphData): Node[] {
     const radius = 150 + typeIndex * 180;
     entities.forEach((entity, i) => {
       const angle = (i / Math.max(entities.length, 1)) * 2 * Math.PI;
+      const style = TYPE_STYLE[entity.type] ?? { background: "#ffffff", color: "#0a0a0a", borderStyle: "solid" };
       nodes.push({
         id: entity.id,
         position: { x: radius * Math.cos(angle), y: radius * Math.sin(angle) },
         data: { label: `${entity.label} (${entity.type})` },
         style: {
-          background: TYPE_COLORS[entity.type] ?? "#334155",
-          color: "white",
-          borderRadius: 8,
+          background: style.background,
+          color: style.color,
+          border: `1.5px ${style.borderStyle} #0a0a0a`,
+          borderRadius: 4,
           fontSize: 12,
+          fontFamily: "Inter, sans-serif",
           padding: 6,
         },
       });
@@ -62,14 +69,16 @@ export function KnowledgeGraph() {
         target: e.target,
         label: e.relation,
         animated: e.relation === "cites",
+        style: { stroke: "#737373" },
+        labelStyle: { fill: "#0a0a0a", fontSize: 11 },
       })),
     [graph],
   );
 
   return (
-    <div className="h-[calc(100vh-56px)] w-full">
+    <div className="h-[calc(100vh-65px)] w-full bg-white">
       <ReactFlow nodes={nodes} edges={edges} fitView>
-        <Background />
+        <Background color="#d4d4d4" />
         <Controls />
       </ReactFlow>
     </div>

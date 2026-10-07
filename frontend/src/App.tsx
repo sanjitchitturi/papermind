@@ -9,7 +9,7 @@ import { EvalDashboard } from "./pages/EvalDashboard";
 
 export function App() {
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white font-sans text-neutral-950">
       <NavBar />
       <Routes>
         <Route path="/" element={<Search />} />
