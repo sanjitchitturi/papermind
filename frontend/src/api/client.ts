@@ -1,25 +1,34 @@
-/**
- * Thin fetch wrapper for the backend API. Kept deliberately simple, no
- * axios dependency, since every call here is a plain JSON request or
- * response and fetch handles that fine on its own.
- */
-
-// In local dev this stays "/api" and the Vite dev server proxy in
-// vite.config.ts forwards it to the backend. In production, the frontend
-// and backend are deployed to different hosts (Vercel vs. Render/Fly.io),
-// so VITE_API_BASE_URL needs to point at the deployed backend directly.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers = new Headers(options?.headers);
+  if (options?.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Request to ${path} failed with ${response.status}: ${body}`);
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(detail || `Request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
+}
+
+export interface Paper {
+  id: string;
+  title: string;
+  authors: string;
+  year: number | null;
+  arxiv_id: string | null;
+  abstract: string;
+  num_pages: number;
+  num_chunks: number;
+  source: string;
 }
 
 export interface ArxivSearchResult {
@@ -30,12 +39,16 @@ export interface ArxivSearchResult {
   published: string | null;
 }
 
-export interface IngestionJob {
+export interface Job {
   job_id: string;
-  status?: "queued" | "running" | "done" | "failed";
-  stage?: string;
-  error?: string | null;
-  paper_id?: string | null;
+  kind: string;
+  status: "queued" | "running" | "done" | "failed";
+  stage: string;
+  progress: number;
+  message: string;
+  error: string | null;
+  paper_id: string | null;
+  result: Record<string, unknown>;
 }
 
 export interface Source {
@@ -43,16 +56,29 @@ export interface Source {
   paper_id: string;
   paper_title: string;
   section: string;
+  page: number;
   text: string;
+}
+
+export interface TrustSignals {
+  retrieval_margin: number;
+  rerank_confidence: number;
+  citation_pass_rate: number;
+  self_consistency: number;
+  n_sources: number;
+  generative: boolean;
 }
 
 export interface ChatResponse {
   answer_id: string;
   answer: string;
+  mode: string;
   sources: Source[];
   trust_score: number;
   trust_explanation: string;
+  trust_signals: TrustSignals;
   abstained: boolean;
+  latency_ms: number;
 }
 
 export interface MatrixRow {
@@ -81,6 +107,7 @@ export interface IntegrityCitationRow {
   cited_reference: string;
   verdict: string;
   evidence: string;
+  evidence_section: string;
   rationale: string;
 }
 
@@ -99,15 +126,20 @@ export interface ContradictionRow {
 
 export interface GraphNode {
   id: string;
+  kind: string;
   label: string;
   type: string;
   paper_id: string;
+  year?: number | null;
+  arxiv_id?: string | null;
+  mentions?: number;
 }
 
 export interface GraphEdge {
   source: string;
   target: string;
   relation: string;
+  weight: number;
 }
 
 export interface GraphData {
@@ -117,36 +149,59 @@ export interface GraphData {
 
 export interface EvalRunSummary {
   id: string;
+  suite: string;
   commit_sha: string;
-  pipeline_config: string;
+  config: Record<string, unknown>;
   metrics: Record<string, number>;
   created_at: string;
 }
 
+export interface Capabilities {
+  embedding_model: string;
+  embedding_description: string;
+  embedding_dim: number | null;
+  reranker_model: string;
+  reranker_description: string;
+  llm_configured: boolean;
+  llm_model: string | null;
+  llm_host: string | null;
+  papers: number;
+  max_papers: number;
+  chunks_indexed: number;
+}
+
+export interface Health {
+  status: string;
+  version: string;
+  commit: string;
+  postgres: boolean;
+  qdrant: boolean;
+  llm: boolean;
+}
+
 export const api = {
-  searchArxiv: (query: string, maxResults = 10) =>
+  health: () => request<Health>("/health"),
+  capabilities: () => request<Capabilities>("/capabilities"),
+
+  listPapers: () => request<Paper[]>("/papers"),
+  deletePaper: (id: string) => request<{ deleted: string }>(`/papers/${id}`, { method: "DELETE" }),
+
+  searchArxiv: (query: string, maxResults = 8) =>
     request<ArxivSearchResult[]>("/ingest/arxiv/search", {
       method: "POST",
       body: JSON.stringify({ query, max_results: maxResults }),
     }),
 
   ingestArxiv: (arxivId: string) =>
-    request<IngestionJob>("/ingest/arxiv", {
-      method: "POST",
-      body: JSON.stringify({ arxiv_id: arxivId }),
-    }),
+    request<Job>("/ingest/arxiv", { method: "POST", body: JSON.stringify({ arxiv_id: arxivId }) }),
 
-  uploadPdf: async (file: File): Promise<IngestionJob> => {
+  uploadPdf: async (file: File): Promise<Job> => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await fetch(`${BASE_URL}/ingest/upload`, { method: "POST", body: formData });
-    if (!response.ok) {
-      throw new Error(`Upload failed with ${response.status}`);
-    }
-    return response.json();
+    return request<Job>("/ingest/upload", { method: "POST", body: formData });
   },
 
-  getJobStatus: (jobId: string) => request<IngestionJob>(`/ingest/jobs/${jobId}`),
+  getJob: (jobId: string) => request<Job>(`/ingest/jobs/${jobId}`),
 
   chat: (question: string, paperId?: string) =>
     request<ChatResponse>("/chat", {
@@ -161,31 +216,26 @@ export const api = {
     }),
 
   research: (question: string) =>
-    request<ResearchResponse>("/research", {
-      method: "POST",
-      body: JSON.stringify({ question }),
-    }),
+    request<ResearchResponse>("/research", { method: "POST", body: JSON.stringify({ question }) }),
 
-  runIntegrityCheck: (paperId: string) =>
-    request<{ checked: number }>(`/integrity/papers/${paperId}/check`, { method: "POST" }),
-
+  runIntegrityCheck: (paperId: string) => request<Job>(`/integrity/papers/${paperId}/check`, { method: "POST" }),
   getIntegrityReport: (paperId: string) => request<IntegrityReport>(`/integrity/papers/${paperId}/report`),
-
-  scanContradictions: () => request<{ found: number }>("/integrity/contradictions/scan", { method: "POST" }),
-
+  scanContradictions: () => request<Job>("/integrity/contradictions/scan", { method: "POST" }),
   listContradictions: () => request<ContradictionRow[]>("/integrity/contradictions"),
 
   buildGraphForPaper: (paperId: string) =>
-    request<{ entities_created: number; citation_edges_linked: number }>(`/graph/papers/${paperId}/build`, {
-      method: "POST",
-    }),
-
+    request<{ entities: number; citations: number }>(`/graph/papers/${paperId}/build`, { method: "POST" }),
   getGraph: () => request<GraphData>("/graph"),
 
-  runEval: (pipelineConfig = "full") =>
-    request<{ run_id: string; metrics: Record<string, number> }>(`/eval/run?pipeline_config=${pipelineConfig}`, {
-      method: "POST",
-    }),
-
+  runEval: (suite = "retrieval") => request<Job>(`/eval/run?suite=${suite}`, { method: "POST" }),
   getEvalHistory: () => request<EvalRunSummary[]>("/eval/history"),
 };
+
+export async function pollJob(jobId: string, onTick?: (job: Job) => void, intervalMs = 1200): Promise<Job> {
+  for (;;) {
+    const job = await api.getJob(jobId);
+    onTick?.(job);
+    if (job.status === "done" || job.status === "failed") return job;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}

@@ -1,7 +1,6 @@
-# Render blueprint for the backend. Deploy by connecting this repo in the
-# Render dashboard and letting it pick up this file, then set the secret
-# env vars (OPENAI_API_KEY, DATABASE_URL, QDRANT_URL, QDRANT_API_KEY)
-# through the dashboard rather than committing them here.
+# Render blueprint for the API. Connect the repo in the Render dashboard
+# and set secret env vars there (DATABASE_URL, QDRANT_URL, QDRANT_API_KEY,
+# LLM_API_KEY). Do not commit secrets.
 services:
   - type: web
     name: papermind-api
@@ -11,8 +10,18 @@ services:
     plan: free
     envVars:
       - key: CORS_ORIGINS
-        value: '["https://papermind.vercel.app"]'
-      - key: OPENAI_API_KEY
+        value: '["https://papermind-silk.vercel.app"]'
+      - key: CORS_ORIGIN_REGEX
+        value: "https://.*\\.vercel\\.app"
+      - key: ENVIRONMENT
+        value: production
+      - key: EMBEDDING_MODEL
+        value: arctic-embed-xs-int8
+      - key: RERANKER_MODEL
+        value: ms-marco-minilm-l6-int8
+      - key: MODEL_CACHE_DIR
+        value: /app/.models
+      - key: LLM_API_KEY
         sync: false
       - key: DATABASE_URL
         sync: false

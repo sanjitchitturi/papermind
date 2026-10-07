@@ -1,77 +1,83 @@
 """
-Builds the knowledge graph for a paper: extracts entities, deduplicates
-them against entities already seen for that paper, and records citation
-edges from the bibliography parser's resolved arXiv ids.
+Builds the knowledge graph for a paper: extracts entities, upserts them
+into a corpus-level entity table (so "BERT" is one node no matter how many
+papers mention it), and records citation edges to other papers already in
+the library.
 
-The graph is stored as plain rows in Postgres (GraphEntity, GraphEdge)
-rather than in a dedicated graph database. For the size of corpus this
-project targets (dozens to low hundreds of papers), adjacency queries in
-Postgres plus in-process traversal with networkx are plenty fast, and it
-avoids running a second database just for this.
+Matching cited papers tries the resolved arXiv id first, then a
+normalized title / first-author heuristic against bibliography text.
 """
 
+import re
 from uuid import UUID
 
 from sqlmodel import Session, select
 
-from app.db.models import BibliographyEntry, GraphEdge, GraphEntity, Paper
-from app.graph.entity_extractor import extract_entities
+from app.db.models import BibliographyEntry, Entity, Paper, PaperCitation, PaperEntity
+from app.graph.entity_extractor import canonical, extract_entities
 
 
-def build_entities_for_paper(session: Session, paper_id: UUID, text: str) -> list[GraphEntity]:
+def build_for_paper(session: Session, paper_id: UUID, text: str) -> dict:
     extracted = extract_entities(text)
-    created = []
-    for name, entity_type in extracted:
-        existing = session.exec(
-            select(GraphEntity).where(
-                GraphEntity.paper_id == paper_id,
-                GraphEntity.name == name,
-                GraphEntity.type == entity_type,
-            )
+    n_entities = 0
+    for name, entity_type, mentions in extracted:
+        key = canonical(name)
+        entity = session.exec(select(Entity).where(Entity.canonical == key, Entity.type == entity_type)).first()
+        if entity is None:
+            entity = Entity(name=name, canonical=key, type=entity_type)
+            session.add(entity)
+            session.flush()
+        link = session.exec(
+            select(PaperEntity).where(PaperEntity.paper_id == paper_id, PaperEntity.entity_id == entity.id)
         ).first()
-        if existing:
-            continue
-        entity = GraphEntity(paper_id=paper_id, name=name, type=entity_type)
-        session.add(entity)
-        created.append(entity)
+        if link is None:
+            session.add(PaperEntity(paper_id=paper_id, entity_id=entity.id, mentions=mentions))
+            n_entities += 1
+        else:
+            link.mentions = mentions
+            session.add(link)
     session.commit()
-    return created
+    n_cites = link_citation_edges(session, paper_id)
+    return {"entities": n_entities, "citations": n_cites}
 
 
 def link_citation_edges(session: Session, paper_id: UUID) -> int:
-    """
-    For every bibliography entry we managed to resolve to an arXiv id that
-    is also in our corpus, record a citation edge between the two papers'
-    "self" entities (one synthetic entity per paper representing the
-    paper itself, so edges can connect papers directly, not just
-    sub-entities within them).
-    """
-    citing_self = _get_or_create_self_entity(session, paper_id)
-
+    papers = session.exec(select(Paper)).all()
+    by_arxiv = {p.arxiv_id: p for p in papers if p.arxiv_id}
     entries = session.exec(select(BibliographyEntry).where(BibliographyEntry.paper_id == paper_id)).all()
     linked = 0
     for entry in entries:
-        if not entry.resolved_arxiv_id:
+        cited = None
+        if entry.resolved_arxiv_id and entry.resolved_arxiv_id in by_arxiv:
+            cited = by_arxiv[entry.resolved_arxiv_id]
+            method = "arxiv_id"
+        else:
+            cited = _match_by_title(entry.raw_text, papers, paper_id)
+            method = "title"
+        if cited is None or cited.id == paper_id:
             continue
-        cited_paper = session.exec(select(Paper).where(Paper.arxiv_id == entry.resolved_arxiv_id)).first()
-        if not cited_paper:
-            continue
-        cited_self = _get_or_create_self_entity(session, cited_paper.id)
-        session.add(GraphEdge(source_entity_id=citing_self.id, target_entity_id=cited_self.id, relation="cites"))
-        linked += 1
+        existing = session.exec(
+            select(PaperCitation).where(
+                PaperCitation.citing_paper_id == paper_id, PaperCitation.cited_paper_id == cited.id
+            )
+        ).first()
+        if existing is None:
+            session.add(PaperCitation(citing_paper_id=paper_id, cited_paper_id=cited.id, method=method))
+            linked += 1
     session.commit()
     return linked
 
 
-def _get_or_create_self_entity(session: Session, paper_id: UUID) -> GraphEntity:
-    from app.db.models import EntityType
-
-    existing = session.exec(
-        select(GraphEntity).where(GraphEntity.paper_id == paper_id, GraphEntity.type == EntityType.model, GraphEntity.name == "__self__")
-    ).first()
-    if existing:
-        return existing
-    entity = GraphEntity(paper_id=paper_id, name="__self__", type=EntityType.model)
-    session.add(entity)
-    session.commit()
-    return entity
+def _match_by_title(raw: str, papers: list[Paper], self_id: UUID) -> Paper | None:
+    blob = re.sub(r"\s+", " ", raw.lower())
+    best: Paper | None = None
+    best_len = 0
+    for paper in papers:
+        if paper.id == self_id:
+            continue
+        title = paper.title.lower().strip()
+        if len(title) < 18:
+            continue
+        if title in blob and len(title) > best_len:
+            best, best_len = paper, len(title)
+    return best

@@ -1,10 +1,6 @@
 import type { Source } from "../api/client";
 
-interface Props {
-  sources: Source[];
-}
-
-export function SourcePanel({ sources }: Props) {
+export function SourcePanel({ sources }: { sources: Source[] }) {
   if (sources.length === 0) {
     return <p className="text-sm text-neutral-500">No sources were used for this answer.</p>;
   }
@@ -13,17 +9,15 @@ export function SourcePanel({ sources }: Props) {
     <div className="flex flex-col gap-2">
       <h3 className="font-serif text-sm font-semibold text-neutral-950">Sources</h3>
       {sources.map((source) => (
-        <div key={source.index} className="border border-neutral-200 p-3 text-sm">
-          <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
-            <span>
-              [{source.index}] {source.paper_title}
+        <details key={source.index} className="border border-neutral-200">
+          <summary className="cursor-pointer px-3 py-2 text-sm text-neutral-800">
+            <span className="font-medium text-neutral-950">[{source.index}]</span> {source.paper_title}
+            <span className="ml-2 text-xs text-neutral-500">
+              {source.section} · p.{source.page}
             </span>
-            <span className="border border-neutral-300 px-2 py-0.5 uppercase tracking-wide text-[10px]">
-              {source.section}
-            </span>
-          </div>
-          <p className="text-neutral-800">{source.text}</p>
-        </div>
+          </summary>
+          <p className="border-t border-neutral-200 px-3 py-2 text-sm leading-relaxed text-neutral-700">{source.text}</p>
+        </details>
       ))}
     </div>
   );

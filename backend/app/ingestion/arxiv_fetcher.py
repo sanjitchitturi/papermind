@@ -1,63 +1,79 @@
 """
-Wraps the arxiv.org API for both searching ("find me papers about X") and
-fetching a specific paper by id, then downloads the PDF to local disk so
-the rest of the ingestion pipeline can treat it the same way as an
-uploaded file.
+Wraps the arxiv.org API for search and for fetching a specific paper by
+id, then downloads the PDF so the rest of ingestion can treat it the same
+way as an uploaded file.
 """
 
 import os
+import re
 from dataclasses import dataclass
 
 import arxiv
 
-STORAGE_DIR = os.environ.get("PAPER_STORAGE_DIR", "./storage/papers")
+from app.core.config import get_settings
+
+_ARXIV_ID = re.compile(r"^(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z\-]+(?:\.[A-Z]{2})?/\d{7})$")
 
 
 @dataclass
 class ArxivResult:
     arxiv_id: str
-    version: str
     title: str
     authors: list[str]
     abstract: str
     pdf_path: str
+    published: str | None
 
 
-def search(query: str, max_results: int = 10) -> list[dict]:
+def search(query: str, max_results: int = 8) -> list[dict]:
     client = arxiv.Client()
     search_obj = arxiv.Search(query=query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance)
     results = []
     for result in client.results(search_obj):
         results.append(
             {
-                "arxiv_id": result.get_short_id(),
-                "title": result.title,
+                "arxiv_id": _canonical_id(result.get_short_id()),
+                "title": _one_line(result.title),
                 "authors": [a.name for a in result.authors],
-                "abstract": result.summary,
-                "published": result.published.isoformat() if result.published else None,
+                "abstract": _one_line(result.summary),
+                "published": result.published.date().isoformat() if result.published else None,
             }
         )
     return results
 
 
 def fetch_and_download(arxiv_id: str) -> ArxivResult:
-    os.makedirs(STORAGE_DIR, exist_ok=True)
-    client = arxiv.Client()
-    search_obj = arxiv.Search(id_list=[arxiv_id])
-    result = next(client.results(search_obj), None)
-    if result is None:
-        raise ValueError(f"No arXiv paper found for id {arxiv_id}")
+    canonical = _canonical_id(arxiv_id)
+    if not _ARXIV_ID.match(canonical):
+        raise ValueError(f"'{arxiv_id}' does not look like an arXiv id.")
 
-    short_id = result.get_short_id()
+    storage = os.path.join(get_settings().storage_dir, "papers")
+    os.makedirs(storage, exist_ok=True)
+
+    client = arxiv.Client()
+    result = next(client.results(arxiv.Search(id_list=[canonical])), None)
+    if result is None:
+        raise ValueError(f"No arXiv paper found for id {canonical}")
+
+    short_id = _canonical_id(result.get_short_id())
     filename = f"{short_id.replace('/', '_')}.pdf"
-    pdf_path = os.path.join(STORAGE_DIR, filename)
-    result.download_pdf(dirpath=STORAGE_DIR, filename=filename)
+    pdf_path = os.path.join(storage, filename)
+    if not os.path.exists(pdf_path):
+        result.download_pdf(dirpath=storage, filename=filename)
 
     return ArxivResult(
         arxiv_id=short_id,
-        version=short_id.split("v")[-1] if "v" in short_id else "1",
-        title=result.title,
+        title=_one_line(result.title),
         authors=[a.name for a in result.authors],
-        abstract=result.summary,
+        abstract=_one_line(result.summary),
         pdf_path=pdf_path,
+        published=result.published.date().isoformat() if result.published else None,
     )
+
+
+def _canonical_id(arxiv_id: str) -> str:
+    return arxiv_id.strip().replace("arxiv:", "").replace("arXiv:", "").split("v")[0]
+
+
+def _one_line(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()

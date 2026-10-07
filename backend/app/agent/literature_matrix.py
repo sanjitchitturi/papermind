@@ -1,17 +1,11 @@
-"""
-Turns a set of retrieved passages, grouped by paper, into a structured
-comparison table: method, dataset, metric/result, and limitations per
-paper. This is what makes Research Mode output something closer to a
-literature review table than a long paragraph of prose.
-"""
-
 from dataclasses import dataclass
 
-from app.core.llm import chat_json
+from app.core.llm import chat_json, llm_available
+from app.db.models import EntityType
+from app.graph.entity_extractor import extract_entities
 
-EXTRACTION_PROMPT = """Based on the passages below from a single paper, extract a
-structured summary for a literature review comparison table. If a field isn't
-mentioned in the passages, use an empty string rather than guessing.
+EXTRACTION_PROMPT = """Based on the passages from a single paper, fill a literature
+review comparison row. Use an empty string rather than guessing.
 
 Paper title: {title}
 Passages:
@@ -31,18 +25,30 @@ class MatrixRow:
 
 
 def build_row(paper_id: str, paper_title: str, passages: list[str]) -> MatrixRow:
-    passage_block = "\n\n".join(passages[:6])  # cap how much goes into one extraction call
-    result = chat_json([{"role": "user", "content": EXTRACTION_PROMPT.format(title=paper_title, passages=passage_block)}])
+    if llm_available():
+        result = chat_json(
+            [{"role": "user", "content": EXTRACTION_PROMPT.format(title=paper_title, passages="\n\n".join(passages[:5]))}]
+        )
+        return MatrixRow(
+            paper_title=paper_title,
+            paper_id=paper_id,
+            method=result.get("method", ""),
+            dataset=result.get("dataset", ""),
+            metric_result=result.get("metric_result", ""),
+            limitations=result.get("limitations", ""),
+        )
+    names = {t: [] for t in EntityType}
+    for name, etype, _ in extract_entities(" ".join(passages)[:8000]):
+        names[etype].append(name)
     return MatrixRow(
         paper_title=paper_title,
         paper_id=paper_id,
-        method=result.get("method", ""),
-        dataset=result.get("dataset", ""),
-        metric_result=result.get("metric_result", ""),
-        limitations=result.get("limitations", ""),
+        method=", ".join(names[EntityType.method][:4]),
+        dataset=", ".join(names[EntityType.dataset][:4]),
+        metric_result=", ".join(names[EntityType.metric][:4]),
+        limitations="",
     )
 
 
 def build_matrix(passages_by_paper: dict[str, tuple[str, list[str]]]) -> list[MatrixRow]:
-    """passages_by_paper: {paper_id: (paper_title, [passage_text, ...])}"""
     return [build_row(paper_id, title, texts) for paper_id, (title, texts) in passages_by_paper.items()]

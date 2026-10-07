@@ -1,18 +1,21 @@
-"""Endpoint for thumbs up/down feedback on answers."""
+from uuid import UUID
 
-import uuid
+from fastapi import APIRouter, HTTPException
 
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-
+from app.api.deps import SessionDep
 from app.api.schemas import FeedbackRequest
-from app.db.session import get_session
 from app.feedback.feedback_store import record_feedback
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
 @router.post("")
-def submit_feedback(request: FeedbackRequest, session: Session = Depends(get_session)):
-    feedback = record_feedback(session, uuid.UUID(request.answer_id), request.rating, request.comment)
+def submit_feedback(request: FeedbackRequest, session: SessionDep):
+    if request.rating not in (1, -1):
+        raise HTTPException(status_code=400, detail="rating must be 1 or -1")
+    try:
+        answer_id = UUID(request.answer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid answer id.") from exc
+    feedback = record_feedback(session, answer_id, request.rating, request.comment)
     return {"feedback_id": str(feedback.id)}

@@ -1,134 +1,156 @@
-import { useEffect, useRef, useState } from "react";
-import { api, type ArxivSearchResult, type IngestionJob } from "../api/client";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { api, pollJob, type ArxivSearchResult, type Job, type Paper } from "../api/client";
+import { Button, Empty, ErrorText, Input, Page, PageHeader } from "../components/ui";
 
 export function Search() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ArxivSearchResult[]>([]);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [searching, setSearching] = useState(false);
-  const [jobs, setJobs] = useState<Record<string, IngestionJob>>({});
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPapers = useCallback(() => {
+    api.listPapers().then(setPapers).catch(() => setPapers([]));
+  }, []);
+
+  useEffect(() => {
+    loadPapers();
+  }, [loadPapers]);
 
   async function runSearch() {
     if (!query.trim()) return;
     setSearching(true);
+    setError(null);
     try {
-      const found = await api.searchArxiv(query);
-      setResults(found);
+      setResults(await api.searchArxiv(query));
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setSearching(false);
     }
   }
 
-  function trackJob(job: IngestionJob) {
-    setJobs((prev) => ({ ...prev, [job.job_id]: job }));
+  async function track(job: Job) {
+    if (job.status === "done") {
+      loadPapers();
+      setJobs((prev) => [job, ...prev.filter((j) => j.job_id !== job.job_id)]);
+      return;
+    }
+    setJobs((prev) => [job, ...prev.filter((j) => j.job_id !== job.job_id)]);
+    const finished = await pollJob(job.job_id, (tick) => {
+      setJobs((prev) => prev.map((j) => (j.job_id === tick.job_id ? tick : j)));
+    });
+    setJobs((prev) => prev.map((j) => (j.job_id === finished.job_id ? finished : j)));
+    if (finished.status === "done") loadPapers();
   }
 
-  async function ingestArxivPaper(arxivId: string) {
-    const job = await api.ingestArxiv(arxivId);
-    trackJob(job);
+  async function ingest(arxivId: string) {
+    setError(null);
+    try {
+      await track(await api.ingestArxiv(arxivId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ingest failed");
+    }
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const job = await api.uploadPdf(file);
-    trackJob(job);
+    setError(null);
+    try {
+      await track(await api.uploadPdf(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    }
   }
 
-  // Poll every running job until it reaches a terminal state. A single
-  // interval that re-checks all jobs is simpler than one timer per job
-  // and is plenty responsive for a handful of concurrent ingestions.
-  useEffect(() => {
-    pollRef.current = setInterval(async () => {
-      const activeJobIds = Object.values(jobs)
-        .filter((j) => j.status !== "done" && j.status !== "failed")
-        .map((j) => j.job_id);
-      for (const jobId of activeJobIds) {
-        const updated = await api.getJobStatus(jobId);
-        trackJob(updated);
-      }
-    }, 2000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [jobs]);
-
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-12 px-6 py-12">
+    <Page>
+      <PageHeader title="Library">
+        Search arXiv or upload a PDF. Ingestion parses sections, chunks at sentence boundaries, and indexes
+        dense plus BM25 vectors locally. Duplicate arXiv ids are skipped.
+      </PageHeader>
+
+      <ErrorText error={error} />
+
       <section>
-        <h2 className="mb-4 font-serif text-2xl text-neutral-950">Search arXiv</h2>
+        <h2 className="mb-3 font-serif text-xl text-neutral-950">Search arXiv</h2>
         <div className="flex gap-2">
-          <input
+          <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && runSearch()}
             placeholder="e.g. retrieval augmented generation"
-            className="flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950 placeholder:text-neutral-400"
           />
-          <button
-            onClick={runSearch}
-            disabled={searching}
-            className="border border-neutral-950 bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-          >
+          <Button onClick={runSearch} disabled={searching}>
             {searching ? "Searching..." : "Search"}
-          </button>
+          </Button>
         </div>
-
-        <div className="mt-6 flex flex-col gap-4">
+        <div className="mt-4 flex flex-col gap-3">
           {results.map((paper) => (
-            <div key={paper.arxiv_id} className="border border-neutral-200 p-4">
+            <article key={paper.arxiv_id} className="border border-neutral-200 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-serif text-base text-neutral-950">{paper.title}</p>
-                  <p className="mt-1 text-xs text-neutral-500">{paper.authors.join(", ")}</p>
-                  <p className="mt-2 text-sm text-neutral-700">{paper.abstract.slice(0, 220)}...</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {paper.authors.slice(0, 4).join(", ")}
+                    {paper.authors.length > 4 ? " et al." : ""} · {paper.arxiv_id}
+                  </p>
+                  <p className="mt-2 text-sm text-neutral-700">{paper.abstract.slice(0, 240)}...</p>
                 </div>
-                <button
-                  onClick={() => ingestArxivPaper(paper.arxiv_id)}
-                  className="shrink-0 border border-neutral-950 px-3 py-1 text-xs font-medium text-neutral-950 hover:bg-neutral-950 hover:text-white"
-                >
+                <Button variant="secondary" onClick={() => ingest(paper.arxiv_id)}>
                   Ingest
-                </button>
+                </Button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </section>
 
       <section>
-        <h2 className="mb-4 font-serif text-2xl text-neutral-950">Or upload a PDF</h2>
-        <input type="file" accept="application/pdf" onChange={handleUpload} className="text-sm text-neutral-700" />
+        <h2 className="mb-3 font-serif text-xl text-neutral-950">Upload a PDF</h2>
+        <input type="file" accept="application/pdf" onChange={onUpload} className="text-sm text-neutral-700" />
       </section>
 
-      {Object.keys(jobs).length > 0 && (
+      {jobs.length > 0 && (
         <section>
-          <h2 className="mb-4 font-serif text-2xl text-neutral-950">Ingestion jobs</h2>
+          <h2 className="mb-3 font-serif text-xl text-neutral-950">Jobs</h2>
           <div className="flex flex-col gap-2">
-            {Object.values(jobs).map((job) => (
-              <div
-                key={job.job_id}
-                className="flex items-center justify-between border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <span className="font-mono text-xs text-neutral-400">{job.job_id.slice(0, 8)}</span>
-                <span className="text-neutral-700">{job.stage ?? "queued"}</span>
-                <span
-                  className={
-                    job.status === "done"
-                      ? "font-medium text-neutral-950"
-                      : job.status === "failed"
-                        ? "font-medium text-neutral-950 underline"
-                        : "text-neutral-500"
-                  }
-                >
-                  {job.status ?? "queued"}
-                </span>
+            {jobs.map((job) => (
+              <div key={job.job_id} className="flex items-center justify-between border border-neutral-200 px-3 py-2 text-sm">
+                <span className="text-neutral-700">{job.message || job.stage}</span>
+                <span className="text-xs text-neutral-500">{Math.round(job.progress * 100)}%</span>
+                <span className={job.status === "failed" ? "font-medium underline" : "font-medium"}>{job.status}</span>
               </div>
             ))}
           </div>
         </section>
       )}
-    </div>
+
+      <section>
+        <h2 className="mb-3 font-serif text-xl text-neutral-950">In the library</h2>
+        {papers.length === 0 ? (
+          <Empty>Nothing ingested yet. Search arXiv above or upload a PDF.</Empty>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {papers.map((paper) => (
+              <div key={paper.id} className="flex items-start justify-between gap-4 border border-neutral-200 p-3">
+                <div>
+                  <p className="font-serif text-neutral-950">{paper.title}</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {paper.authors} {paper.year ? `· ${paper.year}` : ""} · {paper.num_chunks} chunks
+                  </p>
+                </div>
+                <Link to="/chat" className="text-xs underline text-neutral-700 hover:text-neutral-950">
+                  Ask
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </Page>
   );
 }

@@ -1,10 +1,6 @@
 {
-  "description": "Seed evaluation set. Questions are scoped to a handful of well-known papers that should be ingested before running eval, so retrieval has something real to find. Expand this over time as the feedback loop queues up disagreements.",
-  "seed_papers": [
-    "1706.03762",
-    "1810.04805",
-    "2005.14165"
-  ],
+  "description": "Seed evaluation set. Papers should be ingested before running generation eval. Retrieval eval only needs the papers in the index.",
+  "seed_papers": ["1706.03762", "1810.04805", "2005.14165"],
   "qa_pairs": [
     {
       "question": "What mechanism does the Transformer architecture use instead of recurrence?",
@@ -12,23 +8,49 @@
       "relevant_paper": "1706.03762"
     },
     {
+      "question": "How many attention heads does the base Transformer use?",
+      "expected_answer_contains": ["8", "eight"],
+      "relevant_paper": "1706.03762"
+    },
+    {
+      "question": "What is the residual connection around each Transformer sub-layer?",
+      "expected_answer_contains": ["layer normalization", "layer-normalization", "residual"],
+      "relevant_paper": "1706.03762"
+    },
+    {
+      "question": "Which two WMT 2014 translation tasks are used to evaluate the Transformer?",
+      "expected_answer_contains": ["english-german", "english-french", "german", "french"],
+      "relevant_paper": "1706.03762"
+    },
+    {
       "question": "What is the main pretraining objective used by BERT?",
-      "expected_answer_contains": ["masked language model", "masked"],
+      "expected_answer_contains": ["masked language", "masked"],
+      "relevant_paper": "1810.04805"
+    },
+    {
+      "question": "What is BERT's next sentence prediction task designed to capture?",
+      "expected_answer_contains": ["sentence", "pair", "relationship"],
+      "relevant_paper": "1810.04805"
+    },
+    {
+      "question": "Which two model sizes does the BERT paper report as BERT-base and BERT-large?",
+      "expected_answer_contains": ["110", "340", "layers"],
       "relevant_paper": "1810.04805"
     },
     {
       "question": "How does GPT-3 approach few-shot learning?",
-      "expected_answer_contains": ["in-context", "few-shot", "prompt"],
+      "expected_answer_contains": ["in-context", "few-shot", "prompt", "demonstration"],
+      "relevant_paper": "2005.14165"
+    },
+    {
+      "question": "Approximately how many parameters does GPT-3 have in its largest configuration?",
+      "expected_answer_contains": ["175", "billion"],
+      "relevant_paper": "2005.14165"
+    },
+    {
+      "question": "Does GPT-3 require gradient updates at inference time for few-shot tasks?",
+      "expected_answer_contains": ["no", "without", "gradient", "fine-tun"],
       "relevant_paper": "2005.14165"
     }
-  ],
-  "citation_integrity_cases": [
-    {
-      "description": "Known supported case, used to check the integrity engine does not over-flag correct citations.",
-      "claim": "Vaswani et al. proposed the Transformer architecture based entirely on attention mechanisms, without recurrence or convolution.",
-      "source_paper": "1706.03762",
-      "expected_verdict": "supported"
-    }
-  ],
-  "note": "This seed set is intentionally small. The point of the eval harness is the pipeline (metrics, CI gating, dashboard trend), not an exhaustive benchmark. Grow qa_pairs and citation_integrity_cases as real usage and feedback come in."
+  ]
 }

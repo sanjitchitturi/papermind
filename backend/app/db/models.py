@@ -1,32 +1,40 @@
 """
 SQLModel table definitions.
 
-Design note: the actual vectors live in Qdrant, not here. Postgres holds
-everything we need to reason about *relationships* between papers, claims,
-and entities: the bibliography graph, citation verifications, contradictions,
-and the knowledge graph adjacency. Keeping that relational data in Postgres
-(instead of a separate graph database) is a deliberate scope decision so the
-whole project runs on free-tier infra without adding another moving part.
+Vectors live in Qdrant. Postgres holds everything needed to reason about
+relationships between papers, claims and entities: the bibliography,
+citation checks, contradictions, and the knowledge graph adjacency. Keeping
+the graph as plain tables (instead of a separate graph database) is a
+deliberate scope decision, the corpus sizes this targets are small enough
+that adjacency queries plus in-process traversal are plenty fast.
+
+Schema changes go through Alembic migrations in backend/migrations.
 """
 
 import enum
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 
 
 def utcnow() -> datetime:
-    # SQLAlchemy's TIMESTAMP WITH TIME ZONE column type (which SQLModel
-    # uses for datetime fields) rejects naive datetimes as of recent
-    # versions, datetime.utcnow() returns a naive one even though the name
-    # suggests otherwise. This is the timezone-aware equivalent.
+    # TIMESTAMP WITH TIME ZONE columns reject naive datetimes, and
+    # datetime.utcnow() returns a naive one despite the name.
     return datetime.now(UTC)
 
 
 class PaperSource(str, enum.Enum):
     arxiv = "arxiv"
     upload = "upload"
+
+
+class JobKind(str, enum.Enum):
+    ingest = "ingest"
+    integrity = "integrity"
+    contradictions = "contradictions"
+    eval = "eval"
 
 
 class JobStatus(str, enum.Enum):
@@ -41,7 +49,7 @@ class CitationVerdict(str, enum.Enum):
     partially_supported = "partially_supported"
     unsupported = "unsupported"
     contradicted = "contradicted"
-    unresolved = "unresolved"  # cited work isn't in the corpus and couldn't be fetched
+    unresolved = "unresolved"
 
 
 class EntityType(str, enum.Enum):
@@ -49,124 +57,169 @@ class EntityType(str, enum.Enum):
     dataset = "dataset"
     metric = "metric"
     model = "model"
-    author = "author"
-    institution = "institution"
+    task = "task"
 
 
 class Paper(SQLModel, table=True):
+    __tablename__ = "papers"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     arxiv_id: str | None = Field(default=None, index=True)
-    arxiv_version: str | None = None
     title: str
-    authors: str = ""  # comma separated, good enough for display purposes
-    abstract: str = ""
+    authors: str = ""  # comma separated, display only
+    first_author_surname: str = Field(default="", index=True)
+    year: int | None = None
+    abstract: str = Field(default="", sa_column=Column(Text, nullable=False, default=""))
     source: PaperSource
-    pdf_path: str | None = None
-    num_pages: int | None = None
+    num_pages: int = 0
+    num_chunks: int = 0
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class Chunk(SQLModel, table=True):
+    __tablename__ = "chunks"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    paper_id: UUID = Field(foreign_key="paper.id", index=True)
-    qdrant_point_id: str = Field(index=True)
-    section: str = "unknown"
-    page: int | None = None
+    paper_id: UUID = Field(foreign_key="papers.id", index=True)
+    point_id: str = Field(index=True)
+    section: str = "body"
+    page_start: int = 1
+    page_end: int = 1
     order_in_paper: int
-    text: str
+    token_count: int = 0
+    text: str = Field(sa_column=Column(Text, nullable=False))
 
 
 class BibliographyEntry(SQLModel, table=True):
-    """One entry from a paper's reference list, e.g. '[12] Vaswani et al., Attention Is All You Need, 2017'."""
+    """One entry from a paper's reference list."""
+
+    __tablename__ = "bibliography_entries"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    paper_id: UUID = Field(foreign_key="paper.id", index=True)
-    marker: str  # the literal marker used in-text, e.g. "12" or "Vaswani2017"
-    raw_text: str
+    paper_id: UUID = Field(foreign_key="papers.id", index=True)
+    marker: str  # the in-text marker, "12" or "RWC+19"
+    raw_text: str = Field(sa_column=Column(Text, nullable=False))
     resolved_arxiv_id: str | None = None
-    resolved_paper_id: UUID | None = Field(default=None, foreign_key="paper.id")
 
 
 class Claim(SQLModel, table=True):
-    """An atomic claim extracted from a chunk, optionally attached to a citation marker."""
+    """A checkable claim. Either attributed to a citation, or an atomic claim used for contradiction search."""
+
+    __tablename__ = "claims"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    paper_id: UUID = Field(foreign_key="paper.id", index=True)
-    chunk_id: UUID = Field(foreign_key="chunk.id")
-    bib_entry_id: UUID | None = Field(default=None, foreign_key="bibliographyentry.id")
-    claim_text: str
+    paper_id: UUID = Field(foreign_key="papers.id", index=True)
+    chunk_id: UUID | None = Field(default=None, foreign_key="chunks.id")
+    cited_paper_id: UUID | None = Field(default=None, foreign_key="papers.id")
+    kind: str = "citation"  # "citation" | "atomic"
     citation_marker: str | None = None
+    context: str = Field(default="", sa_column=Column(Text, nullable=False, default=""))
+    claim_text: str = Field(sa_column=Column(Text, nullable=False))
 
 
-class CitationVerification(SQLModel, table=True):
+class CitationCheck(SQLModel, table=True):
+    __tablename__ = "citation_checks"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    claim_id: UUID = Field(foreign_key="claim.id", index=True)
+    claim_id: UUID = Field(foreign_key="claims.id", index=True)
     verdict: CitationVerdict
-    evidence_text: str = ""
-    judge_rationale: str = ""
-    confidence: float = 0.0
+    evidence_text: str = Field(default="", sa_column=Column(Text, nullable=False, default=""))
+    evidence_section: str = ""
+    rationale: str = Field(default="", sa_column=Column(Text, nullable=False, default=""))
+    evidence_score: float = 0.0
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class Contradiction(SQLModel, table=True):
+    __tablename__ = "contradictions"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    claim_a_id: UUID = Field(foreign_key="claim.id")
-    claim_b_id: UUID = Field(foreign_key="claim.id")
-    explanation: str
-    confidence: float = 0.0
+    claim_a_id: UUID = Field(foreign_key="claims.id")
+    claim_b_id: UUID = Field(foreign_key="claims.id")
+    explanation: str = Field(sa_column=Column(Text, nullable=False))
+    similarity: float = 0.0
     created_at: datetime = Field(default_factory=utcnow)
 
 
-class GraphEntity(SQLModel, table=True):
+class Entity(SQLModel, table=True):
+    """A canonical entity shared across papers, e.g. one "SQuAD" node no matter how many papers use it."""
+
+    __tablename__ = "entities"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    paper_id: UUID = Field(foreign_key="paper.id", index=True)
     name: str
+    canonical: str = Field(index=True)
     type: EntityType
 
 
-class GraphEdge(SQLModel, table=True):
-    """Generic edge, used both for entity relations ('uses dataset') and paper-to-paper citation edges."""
+class PaperEntity(SQLModel, table=True):
+    __tablename__ = "paper_entities"
+
+    paper_id: UUID = Field(foreign_key="papers.id", primary_key=True)
+    entity_id: UUID = Field(foreign_key="entities.id", primary_key=True)
+    mentions: int = 1
+
+
+class PaperCitation(SQLModel, table=True):
+    """Citation edge between two papers that are both in the corpus."""
+
+    __tablename__ = "paper_citations"
+
+    citing_paper_id: UUID = Field(foreign_key="papers.id", primary_key=True)
+    cited_paper_id: UUID = Field(foreign_key="papers.id", primary_key=True)
+    method: str = "title"  # how it was resolved: "arxiv_id" | "title"
+
+
+class Job(SQLModel, table=True):
+    __tablename__ = "jobs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    source_entity_id: UUID = Field(foreign_key="graphentity.id")
-    target_entity_id: UUID = Field(foreign_key="graphentity.id")
-    relation: str
-
-
-class IngestionJob(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    paper_id: UUID | None = Field(default=None, foreign_key="paper.id")
+    kind: JobKind
     status: JobStatus = JobStatus.queued
-    stage: str = ""
+    stage: str = "queued"
+    progress: float = 0.0
+    message: str = ""
     error: str | None = None
+    paper_id: UUID | None = Field(default=None, foreign_key="papers.id")
+    input_json: str = Field(default="{}", sa_column=Column(Text, nullable=False, default="{}"))
+    result_json: str = Field(default="{}", sa_column=Column(Text, nullable=False, default="{}"))
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
 
 class AnswerRecord(SQLModel, table=True):
-    """Every answer we generate, kept so feedback and eval can refer back to it."""
+    """Every answer served, kept so feedback and calibration can refer back to it."""
+
+    __tablename__ = "answers"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    question: str
-    answer: str
-    paper_id: UUID | None = Field(default=None, foreign_key="paper.id")
+    question: str = Field(sa_column=Column(Text, nullable=False))
+    answer: str = Field(sa_column=Column(Text, nullable=False))
+    mode: str = "generative"  # "generative" | "extractive"
+    paper_id: UUID | None = Field(default=None, foreign_key="papers.id")
     trust_score: int = 0
-    trust_explanation: str = ""
+    signals_json: str = Field(default="{}", sa_column=Column(Text, nullable=False, default="{}"))
     abstained: bool = False
+    latency_ms: int = 0
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class Feedback(SQLModel, table=True):
+    __tablename__ = "feedback"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    answer_id: UUID = Field(foreign_key="answerrecord.id")
-    rating: int  # +1 thumbs up, -1 thumbs down
+    answer_id: UUID = Field(foreign_key="answers.id", index=True)
+    rating: int  # +1 or -1
     comment: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class EvalRun(SQLModel, table=True):
+    __tablename__ = "eval_runs"
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    suite: str = "retrieval"  # "retrieval" | "generation"
     commit_sha: str = "local"
-    pipeline_config: str = "full"  # e.g. "baseline", "hybrid_only", "full"
-    metrics_json: str  # json.dumps of the metrics dict, kept simple on purpose
+    config_json: str = Field(default="{}", sa_column=Column(Text, nullable=False, default="{}"))
+    metrics_json: str = Field(sa_column=Column(Text, nullable=False))
     created_at: datetime = Field(default_factory=utcnow)

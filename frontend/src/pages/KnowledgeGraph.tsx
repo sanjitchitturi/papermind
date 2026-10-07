@@ -2,52 +2,58 @@ import { useEffect, useMemo, useState } from "react";
 import ReactFlow, { Background, Controls, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
 import { api, type GraphData } from "../api/client";
+import { Empty, PageHeader } from "../components/ui";
 
-// reactflow needs literal style values, Tailwind classes don't reach into
-// its inline node styles. Entity types are told apart by grayscale shade
-// AND border style together, since shade alone is hard to distinguish at
-// a glance once there are more than two or three levels.
 const TYPE_STYLE: Record<string, { background: string; color: string; borderStyle: string }> = {
-  method: { background: "#0a0a0a", color: "#ffffff", borderStyle: "solid" },
-  dataset: { background: "#ffffff", color: "#0a0a0a", borderStyle: "solid" },
-  metric: { background: "#ffffff", color: "#0a0a0a", borderStyle: "dashed" },
+  paper: { background: "#0a0a0a", color: "#ffffff", borderStyle: "solid" },
+  method: { background: "#ffffff", color: "#0a0a0a", borderStyle: "solid" },
+  dataset: { background: "#ffffff", color: "#0a0a0a", borderStyle: "dashed" },
+  metric: { background: "#f5f5f5", color: "#0a0a0a", borderStyle: "dotted" },
   model: { background: "#404040", color: "#ffffff", borderStyle: "solid" },
-  author: { background: "#ffffff", color: "#525252", borderStyle: "dotted" },
-  institution: { background: "#ffffff", color: "#525252", borderStyle: "dotted" },
+  task: { background: "#ffffff", color: "#525252", borderStyle: "dashed" },
 };
 
-// Simple circular layout. A proper graph layout library (dagre, elk) would
-// do a better job for large graphs, but for the handful of entities per
-// paper this project deals with, laying nodes out in a circle per type is
-// readable and avoids one more dependency.
-function layoutNodes(graph: GraphData): Node[] {
-  const byType = new Map<string, typeof graph.nodes>();
-  for (const node of graph.nodes) {
-    byType.set(node.type, [...(byType.get(node.type) ?? []), node]);
-  }
-
+function layout(graph: GraphData): Node[] {
+  const papers = graph.nodes.filter((n) => n.kind === "paper");
+  const entities = graph.nodes.filter((n) => n.kind !== "paper");
   const nodes: Node[] = [];
-  const types = Array.from(byType.keys());
-  types.forEach((type, typeIndex) => {
-    const entities = byType.get(type) ?? [];
-    const radius = 150 + typeIndex * 180;
-    entities.forEach((entity, i) => {
-      const angle = (i / Math.max(entities.length, 1)) * 2 * Math.PI;
-      const style = TYPE_STYLE[entity.type] ?? { background: "#ffffff", color: "#0a0a0a", borderStyle: "solid" };
-      nodes.push({
-        id: entity.id,
-        position: { x: radius * Math.cos(angle), y: radius * Math.sin(angle) },
-        data: { label: `${entity.label} (${entity.type})` },
-        style: {
-          background: style.background,
-          color: style.color,
-          border: `1.5px ${style.borderStyle} #0a0a0a`,
-          borderRadius: 4,
-          fontSize: 12,
-          fontFamily: "Inter, sans-serif",
-          padding: 6,
-        },
-      });
+
+  papers.forEach((node, i) => {
+    const angle = (i / Math.max(papers.length, 1)) * 2 * Math.PI;
+    const style = TYPE_STYLE.paper;
+    nodes.push({
+      id: node.id,
+      position: { x: 280 * Math.cos(angle), y: 280 * Math.sin(angle) },
+      data: { label: node.label },
+      style: {
+        background: style.background,
+        color: style.color,
+        border: `1.5px ${style.borderStyle} #0a0a0a`,
+        borderRadius: 2,
+        fontSize: 12,
+        fontFamily: "Source Serif 4, serif",
+        padding: 8,
+        maxWidth: 220,
+      },
+    });
+  });
+
+  entities.forEach((node, i) => {
+    const angle = (i / Math.max(entities.length, 1)) * 2 * Math.PI;
+    const style = TYPE_STYLE[node.type] ?? TYPE_STYLE.method;
+    nodes.push({
+      id: node.id,
+      position: { x: 520 * Math.cos(angle), y: 520 * Math.sin(angle) },
+      data: { label: `${node.label} (${node.type})` },
+      style: {
+        background: style.background,
+        color: style.color,
+        border: `1.5px ${style.borderStyle} #0a0a0a`,
+        borderRadius: 2,
+        fontSize: 11,
+        fontFamily: "Inter, sans-serif",
+        padding: 6,
+      },
     });
   });
   return nodes;
@@ -60,7 +66,7 @@ export function KnowledgeGraph() {
     api.getGraph().then(setGraph).catch(console.error);
   }, []);
 
-  const nodes = useMemo(() => layoutNodes(graph), [graph]);
+  const nodes = useMemo(() => layout(graph), [graph]);
   const edges = useMemo<Edge[]>(
     () =>
       graph.edges.map((e, i) => ({
@@ -69,18 +75,32 @@ export function KnowledgeGraph() {
         target: e.target,
         label: e.relation,
         animated: e.relation === "cites",
-        style: { stroke: "#737373" },
-        labelStyle: { fill: "#0a0a0a", fontSize: 11 },
+        style: { stroke: e.relation === "cites" ? "#0a0a0a" : "#a3a3a3" },
+        labelStyle: { fill: "#525252", fontSize: 10 },
       })),
     [graph],
   );
 
   return (
-    <div className="h-[calc(100vh-65px)] w-full bg-white">
-      <ReactFlow nodes={nodes} edges={edges} fitView>
-        <Background color="#d4d4d4" />
-        <Controls />
-      </ReactFlow>
+    <div className="flex h-[calc(100vh-96px)] flex-col">
+      <div className="px-6 pt-6">
+        <PageHeader title="Knowledge graph">
+          Papers (filled) link to shared entities (outline) and to each other when a bibliography entry
+          resolves to another paper in the library.
+        </PageHeader>
+      </div>
+      {graph.nodes.length === 0 ? (
+        <div className="px-6 pt-8">
+          <Empty>Ingest a paper to populate the graph. Entity extraction runs automatically after indexing.</Empty>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1">
+          <ReactFlow nodes={nodes} edges={edges} fitView>
+            <Background color="#d4d4d4" />
+            <Controls />
+          </ReactFlow>
+        </div>
+      )}
     </div>
   );
 }

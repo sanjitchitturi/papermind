@@ -29,8 +29,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://papermind:papermind@postgres:5432/papermind
       QDRANT_URL: http://qdrant:6333
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:-${OPENAI_API_KEY:-}}
       CORS_ORIGINS: '["http://localhost:5173"]'
+      MODEL_CACHE_DIR: /app/.models
     ports:
       - "8000:8000"
     depends_on:

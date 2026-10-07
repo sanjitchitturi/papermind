@@ -1,18 +1,18 @@
 import { NavLink } from "react-router-dom";
 
 const LINKS = [
-  { to: "/search", label: "Search" },
+  { to: "/search", label: "Library" },
   { to: "/chat", label: "Chat" },
-  { to: "/integrity", label: "Citation Integrity" },
-  { to: "/graph", label: "Knowledge Graph" },
-  { to: "/research", label: "Research Mode" },
-  { to: "/eval", label: "Eval Dashboard" },
+  { to: "/integrity", label: "Integrity" },
+  { to: "/graph", label: "Graph" },
+  { to: "/research", label: "Research" },
+  { to: "/eval", label: "Eval" },
 ];
 
 export function NavBar() {
   return (
-    <nav className="flex items-center gap-1 border-b border-neutral-200 bg-white px-6 py-4">
-      <NavLink to="/" end className="mr-10 font-serif text-xl font-semibold tracking-tight text-neutral-950">
+    <nav className="sticky top-0 z-20 flex items-center gap-1 border-b border-neutral-200 bg-white/95 px-6 py-3 backdrop-blur">
+      <NavLink to="/" end className="mr-8 font-serif text-xl font-semibold tracking-tight text-neutral-950">
         PaperMind
       </NavLink>
       {LINKS.map((link) => (

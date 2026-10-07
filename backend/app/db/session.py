@@ -1,19 +1,29 @@
 from collections.abc import Generator
 
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import get_settings
 
-settings = get_settings()
 
-# echo=False on purpose, the SQL logs get noisy fast once ingestion is running
-engine = create_engine(settings.database_url, echo=False)
+def _make_engine():
+    url = get_settings().database_url
+    if url.startswith("sqlite"):
+        # Tests run against in-memory SQLite. StaticPool keeps a single
+        # connection so every session sees the same database.
+        return create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    # pool_pre_ping matters with Supabase's pooler, which drops idle
+    # connections, and a free-tier instance is idle most of the time.
+    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5, pool_recycle=300)
+
+
+engine = _make_engine()
 
 
 def init_db() -> None:
-    # In a real production app this would be Alembic migrations. For a
-    # portfolio project we create tables directly on startup, it is simpler
-    # and there is no production data to protect from a bad migration.
+    """Creates tables directly. Only used by tests, everything else runs Alembic migrations."""
+    from app.db import models  # noqa: F401
+
     SQLModel.metadata.create_all(engine)
 
 

@@ -1,8 +1,10 @@
 # Python
 backend/.venv/
+backend/:memory:.ses
 __pycache__/
 *.pyc
 backend/storage/
+backend/.models/
 .pytest_cache/
 .ruff_cache/
 .devdata/

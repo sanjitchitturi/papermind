@@ -1,29 +1,30 @@
 """
-Combines several independent signals into one 0-100 trust score for an
-answer, and decides whether the system should abstain instead of
-answering.
+Turns several independent signals into one 0-100 trust score, and decides
+whether the system should abstain.
 
-The goal is to turn "the model sounded confident" into something closer
-to a calibrated estimate of whether the answer is actually right. None of
-these four signals is reliable alone, retrieval score margins are noisy,
-citation verification can miss subtle misrepresentations, and
-self-consistency only catches cases where the model itself is unsure.
-Combined, they catch more failure modes than any one of them would.
+None of these signals is reliable alone. Combined they catch more failure
+modes than any one of them would: a fluent answer that misquotes its
+sources, a fluent answer retrieved from the wrong paper, a fluent answer
+the model itself is unstable on.
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from app.core.config import get_settings
-from app.core.llm import chat
-
-settings = get_settings()
+from app.core.llm import chat, llm_available
+from app.generation.answer_generator import GeneratedAnswer
+from app.ml.reranker import sigmoid
+from app.retrieval.hybrid_search import Passage, retrieval_margin
 
 
 @dataclass
 class TrustSignals:
-    retrieval_margin: float  # 0-1, gap between top result and the rest
-    citation_pass_rate: float  # 0-1, from citation_verifier.pass_rate
-    self_consistency: float  # 0-1, agreement between repeated generations
+    retrieval_margin: float
+    rerank_confidence: float
+    citation_pass_rate: float
+    self_consistency: float
+    n_sources: int
+    generative: bool
 
 
 @dataclass
@@ -31,60 +32,84 @@ class TrustResult:
     score: int
     explanation: str
     should_abstain: bool
+    signals: TrustSignals
+
+    def as_json(self) -> dict:
+        return {
+            "score": self.score,
+            "explanation": self.explanation,
+            "should_abstain": self.should_abstain,
+            "signals": asdict(self.signals),
+        }
 
 
-def compute_retrieval_margin(scores: list[float]) -> float:
-    if len(scores) < 2:
-        return 0.5  # not enough results to judge a margin either way
-    top = scores[0]
-    rest_avg = sum(scores[1:]) / len(scores[1:])
-    if top == 0:
-        return 0.0
-    margin = (top - rest_avg) / top
-    return max(0.0, min(1.0, margin))
-
-
-def compute_self_consistency(question: str, passage_block: str, first_answer: str) -> float:
-    """
-    Generates a second answer at a higher temperature and checks rough
-    agreement with the first. This is a cheap stand-in for sampling many
-    completions, one extra call is enough to catch cases where the model
-    is clearly unstable on this question.
-    """
-    second = chat(
-        [{"role": "user", "content": f"Passages:\n{passage_block}\n\nQuestion: {question}\n\nAnswer:"}],
-        temperature=0.9,
-    )
-    first_words = set(first_answer.lower().split())
-    second_words = set(second.lower().split())
-    if not first_words or not second_words:
+def rerank_confidence(passages: list[Passage]) -> float:
+    if not passages or passages[0].rerank_logit is None:
         return 0.5
-    overlap = len(first_words & second_words) / len(first_words | second_words)
-    return overlap
+    return sigmoid(passages[0].rerank_logit)
 
 
-def compute_trust(signals: TrustSignals) -> TrustResult:
-    # Weighted toward citation pass rate, since a confidently-worded
-    # answer that misquotes its sources is the failure mode that matters
-    # most for a research assistant.
-    weighted = (
-        0.25 * signals.retrieval_margin
-        + 0.45 * signals.citation_pass_rate
-        + 0.30 * signals.self_consistency
+def compute_self_consistency(question: str, passages: list[Passage], first_answer: str) -> float:
+    """
+    One extra generation at higher temperature. Jaccard overlap of tokens
+    is a cheap stand-in for sampling many completions: enough to catch
+    cases where the model is clearly unstable on this question, cheap
+    enough to run on every request.
+    """
+    if not llm_available() or not get_settings().trust_self_consistency:
+        return 0.7
+    block = "\n\n".join(f"[{i + 1}] {p.text}" for i, p in enumerate(passages[:4]))
+    second = chat(
+        [{"role": "user", "content": f"Passages:\n{block}\n\nQuestion: {question}\n\nAnswer:"}],
+        temperature=0.8,
     )
-    score = round(weighted * 100)
+    a, b = set(first_answer.lower().split()), set(second.lower().split())
+    if not a or not b:
+        return 0.5
+    return len(a & b) / len(a | b)
 
+
+def compute_trust(
+    passages: list[Passage],
+    generated: GeneratedAnswer,
+    citation_pass_rate: float,
+    self_consistency: float,
+) -> TrustResult:
+    signals = TrustSignals(
+        retrieval_margin=retrieval_margin(passages),
+        rerank_confidence=rerank_confidence(passages),
+        citation_pass_rate=citation_pass_rate,
+        self_consistency=self_consistency,
+        n_sources=len(passages),
+        generative=generated.mode == "generative",
+    )
+    if signals.generative:
+        weighted = (
+            0.20 * signals.retrieval_margin
+            + 0.20 * signals.rerank_confidence
+            + 0.40 * signals.citation_pass_rate
+            + 0.20 * signals.self_consistency
+        )
+    else:
+        # Extractive answers don't have generated citations to verify, so
+        # the score is about whether retrieval actually found something.
+        weighted = 0.5 * signals.retrieval_margin + 0.5 * signals.rerank_confidence
+
+    score = round(max(0.0, min(1.0, weighted)) * 100)
     reasons = []
-    if signals.citation_pass_rate < 0.7:
+    if signals.n_sources == 0:
+        reasons.append("no passages were retrieved")
+    if signals.citation_pass_rate < 0.7 and signals.generative:
         reasons.append("some citations were not fully supported by their source passages")
     if signals.retrieval_margin < 0.15:
-        reasons.append("retrieval results were not clearly better than alternatives")
-    if signals.self_consistency < 0.3:
-        reasons.append("repeated generations disagreed with each other")
+        reasons.append("top passages were not clearly better than the rest")
+    if signals.rerank_confidence < 0.4:
+        reasons.append("the reranker was not confident the top passage answers the question")
+    if signals.self_consistency < 0.3 and signals.generative:
+        reasons.append("repeated generations disagreed")
     if not reasons:
-        reasons.append("retrieval was strong and citations checked out")
+        reasons.append("retrieval was peaked and citations checked out" if signals.generative else "retrieval was peaked")
 
     explanation = f"Trust score {score}/100: {', '.join(reasons)}."
-    should_abstain = score < settings.trust_abstain_threshold
-
-    return TrustResult(score=score, explanation=explanation, should_abstain=should_abstain)
+    should_abstain = score < get_settings().trust_abstain_threshold
+    return TrustResult(score=score, explanation=explanation, should_abstain=should_abstain, signals=signals)

@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { api, type ChatResponse } from "../api/client";
+import { useEffect, useState } from "react";
+import { api, type ChatResponse, type Paper } from "../api/client";
 import { FeedbackButtons } from "../components/FeedbackButtons";
 import { SourcePanel } from "../components/SourcePanel";
 import { TrustScoreBadge } from "../components/TrustScoreBadge";
+import { Button, ErrorText, Input, Page, PageHeader } from "../components/ui";
 
 interface Turn {
   question: string;
@@ -10,68 +11,85 @@ interface Turn {
 }
 
 export function PaperChat() {
+  const [papers, setPapers] = useState<Paper[]>([]);
   const [paperId, setPaperId] = useState("");
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.listPapers().then(setPapers).catch(() => setPapers([]));
+  }, []);
 
   async function ask() {
     if (!question.trim()) return;
     setLoading(true);
+    setError(null);
     try {
-      const response = await api.chat(question, paperId.trim() || undefined);
+      const response = await api.chat(question, paperId || undefined);
       setTurns((prev) => [...prev, { question, response }]);
       setQuestion("");
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Chat failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-12">
-      <div className="flex items-center gap-2">
-        <input
-          value={paperId}
-          onChange={(e) => setPaperId(e.target.value)}
-          placeholder="Paper id (leave empty to chat with the whole library)"
-          className="flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950 placeholder:text-neutral-400"
-        />
-      </div>
+    <Page>
+      <PageHeader title="Chat">
+        Scoped to one paper or the whole library. Retrieval is local. If no LLM key is configured, answers
+        are extractive quotes from the top passages rather than generated prose.
+      </PageHeader>
 
-      <div className="flex flex-col gap-8">
+      <select
+        value={paperId}
+        onChange={(e) => setPaperId(e.target.value)}
+        className="border border-neutral-300 bg-white px-3 py-2 text-sm"
+      >
+        <option value="">Entire library</option>
+        {papers.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.title}
+          </option>
+        ))}
+      </select>
+
+      <ErrorText error={error} />
+
+      <div className="flex flex-col gap-10">
         {turns.map((turn, i) => (
-          <div key={i} className="flex flex-col gap-3 border-t border-neutral-200 pt-6">
+          <article key={i} className="flex flex-col gap-3 border-t border-neutral-200 pt-6">
             <p className="font-serif text-lg text-neutral-950">{turn.question}</p>
-            <p className="whitespace-pre-wrap text-neutral-800">{turn.response.answer}</p>
+            <p className="whitespace-pre-wrap leading-relaxed text-neutral-800">{turn.response.answer}</p>
             <TrustScoreBadge
               score={turn.response.trust_score}
               explanation={turn.response.trust_explanation}
               abstained={turn.response.abstained}
+              signals={turn.response.trust_signals}
+              mode={turn.response.mode}
+              latencyMs={turn.response.latency_ms}
             />
             <SourcePanel sources={turn.response.sources} />
             <FeedbackButtons answerId={turn.response.answer_id} />
-          </div>
+          </article>
         ))}
       </div>
 
       <div className="sticky bottom-4 flex gap-2 border border-neutral-300 bg-white p-2">
-        <input
+        <Input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask()}
-          placeholder="Ask a question about the paper or the whole library..."
-          className="flex-1 bg-transparent px-2 py-2 text-sm text-neutral-950 outline-none placeholder:text-neutral-400"
+          placeholder="Ask about the paper or the library..."
+          className="border-0"
         />
-        <button
-          onClick={ask}
-          disabled={loading}
-          className="border border-neutral-950 bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-        >
+        <Button onClick={ask} disabled={loading}>
           {loading ? "Thinking..." : "Ask"}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Page>
   );
 }
