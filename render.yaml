@@ -1,0 +1,22 @@
+# Render blueprint for the backend. Deploy by connecting this repo in the
+# Render dashboard and letting it pick up this file, then set the secret
+# env vars (OPENAI_API_KEY, DATABASE_URL, QDRANT_URL, QDRANT_API_KEY)
+# through the dashboard rather than committing them here.
+services:
+  - type: web
+    name: papermind-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: CORS_ORIGINS
+        value: '["https://papermind.vercel.app"]'
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
