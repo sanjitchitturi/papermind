@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, pollJob, type ContradictionRow, type IntegrityReport, type Paper } from "../api/client";
-import { Button, Empty, ErrorText, Page, PageHeader } from "../components/ui";
+import { Button, Empty, ErrorText, Page, PageHeader, Select } from "../components/ui";
 
 const VERDICT_STYLES: Record<string, string> = {
   supported: "font-semibold text-neutral-950",
@@ -68,17 +68,13 @@ export function CitationIntegrity() {
       <section>
         <h2 className="mb-3 font-serif text-xl">Per-paper check</h2>
         <div className="flex gap-2">
-          <select
-            value={paperId}
-            onChange={(e) => setPaperId(e.target.value)}
-            className="flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm"
-          >
+          <Select value={paperId} onChange={(e) => setPaperId(e.target.value)} className="flex-1">
             {papers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title}
               </option>
             ))}
-          </select>
+          </Select>
           <Button onClick={checkPaper} disabled={loading || !paperId}>
             {loading ? "Checking..." : "Run check"}
           </Button>

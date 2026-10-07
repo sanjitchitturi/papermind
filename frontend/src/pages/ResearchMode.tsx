@@ -42,6 +42,8 @@ export function ResearchMode() {
       </div>
       <ErrorText error={error} />
 
+      {loading && <p className="text-sm text-neutral-500">Decomposing, retrieving, and synthesizing...</p>}
+
       {result && (
         <div className="flex flex-col gap-8">
           <ReasoningTrace trace={result.trace} />

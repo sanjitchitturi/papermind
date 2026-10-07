@@ -80,7 +80,7 @@ export function EvalDashboard() {
           {cards.map(([key, value]) => (
             <div key={key} className="bg-white p-4">
               <p className="text-xs text-neutral-500">{key}</p>
-              <p className="font-serif text-2xl">{(value * 100).toFixed(1)}</p>
+              <p className="font-serif text-2xl tabular-nums">{value.toFixed(3)}</p>
             </div>
           ))}
         </div>

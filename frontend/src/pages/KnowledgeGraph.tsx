@@ -82,7 +82,7 @@ export function KnowledgeGraph() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-96px)] flex-col">
+    <div className="flex h-[calc(100vh-9rem)] flex-col">
       <div className="px-6 pt-6">
         <PageHeader title="Knowledge graph">
           Papers (filled) link to shared entities (outline) and to each other when a bibliography entry

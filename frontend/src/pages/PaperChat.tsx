@@ -3,12 +3,18 @@ import { api, type ChatResponse, type Paper } from "../api/client";
 import { FeedbackButtons } from "../components/FeedbackButtons";
 import { SourcePanel } from "../components/SourcePanel";
 import { TrustScoreBadge } from "../components/TrustScoreBadge";
-import { Button, ErrorText, Input, Page, PageHeader } from "../components/ui";
+import { Button, ErrorText, Page, PageHeader, Select, TextArea } from "../components/ui";
 
 interface Turn {
   question: string;
   response: ChatResponse;
 }
+
+const SUGGESTIONS = [
+  "What problem does this paper claim to solve?",
+  "How does the method differ from prior work?",
+  "What datasets and metrics are reported?",
+];
 
 export function PaperChat() {
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -22,13 +28,13 @@ export function PaperChat() {
     api.listPapers().then(setPapers).catch(() => setPapers([]));
   }, []);
 
-  async function ask() {
-    if (!question.trim()) return;
+  async function ask(text = question) {
+    if (!text.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await api.chat(question, paperId || undefined);
-      setTurns((prev) => [...prev, { question, response }]);
+      const response = await api.chat(text, paperId || undefined);
+      setTurns((prev) => [...prev, { question: text, response }]);
       setQuestion("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Chat failed");
@@ -44,20 +50,34 @@ export function PaperChat() {
         are extractive quotes from the top passages rather than generated prose.
       </PageHeader>
 
-      <select
-        value={paperId}
-        onChange={(e) => setPaperId(e.target.value)}
-        className="border border-neutral-300 bg-white px-3 py-2 text-sm"
-      >
-        <option value="">Entire library</option>
+      <Select value={paperId} onChange={(e) => setPaperId(e.target.value)} aria-label="Paper scope">
+        <option value="">Entire library ({papers.length} papers)</option>
         {papers.map((p) => (
           <option key={p.id} value={p.id}>
             {p.title}
           </option>
         ))}
-      </select>
+      </Select>
 
       <ErrorText error={error} />
+
+      {turns.length === 0 && !loading && (
+        <div className="border border-neutral-200 p-6">
+          <p className="text-sm text-neutral-600">Try a question, or start from one of these:</p>
+          <div className="mt-4 flex flex-col gap-2">
+            {SUGGESTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => ask(item)}
+                className="border border-neutral-200 px-3 py-2 text-left text-sm text-neutral-800 hover:border-neutral-950"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-10">
         {turns.map((turn, i) => (
@@ -76,17 +96,23 @@ export function PaperChat() {
             <FeedbackButtons answerId={turn.response.answer_id} />
           </article>
         ))}
+        {loading && <p className="text-sm text-neutral-500">Retrieving and ranking passages...</p>}
       </div>
 
-      <div className="sticky bottom-4 flex gap-2 border border-neutral-300 bg-white p-2">
-        <Input
+      <div className="sticky bottom-4 flex items-end gap-2 border border-neutral-300 bg-white p-2">
+        <TextArea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && ask()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void ask();
+            }
+          }}
           placeholder="Ask about the paper or the library..."
-          className="border-0"
+          aria-label="Question"
         />
-        <Button onClick={ask} disabled={loading}>
+        <Button onClick={() => ask()} disabled={loading}>
           {loading ? "Thinking..." : "Ask"}
         </Button>
       </div>

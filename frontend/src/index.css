@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light, monochrome, paper-like base. No color hues anywhere, just black,
-   white, and the gray scale in between. */
 body {
   background-color: #ffffff;
   color: #0a0a0a;
@@ -19,8 +17,21 @@ h3 {
   letter-spacing: -0.01em;
 }
 
-/* Default focus ring across the app is black, not the Tailwind blue. */
 :focus-visible {
   outline: 2px solid #0a0a0a;
   outline-offset: 1px;
 }
+
+::selection {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+

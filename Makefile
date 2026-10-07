@@ -1,4 +1,11 @@
-.PHONY: backend frontend test seed
+.PHONY: backend frontend test seed eval help
+
+help:
+	@echo "make backend   uvicorn --reload"
+	@echo "make frontend  vite dev"
+	@echo "make test      ruff + pytest + frontend build"
+	@echo "make seed      ingest eval papers"
+	@echo "make eval      retrieval ablations"
 
 backend:
 	cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000

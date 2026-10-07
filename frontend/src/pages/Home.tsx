@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import { Page } from "../components/ui";
 
+const STATS = [
+  { value: "384-d", label: "Arctic Embed XS, int8 ONNX" },
+  { value: "RRF", label: "Dense + BM25 fused in Qdrant" },
+  { value: "0.96", label: "nDCG@10, hybrid + rerank" },
+  { value: "0.95", label: "MRR after MiniLM rerank" },
+];
+
 const DIFFERENTIATORS = [
   {
     title: "Hybrid retrieval that actually reranks",
@@ -24,18 +31,27 @@ const PIPELINE = [
   { label: "Verify", detail: "Citation checks, trust scoring, abstention below threshold" },
 ];
 
+const MODELS = [
+  { role: "Dense", name: "snowflake-arctic-embed-xs", note: "23 MB int8, query prefix, cosine ~0.998 vs fp32" },
+  { role: "Sparse", name: "Qdrant/bm25", note: "Term frequencies in the collection; IDF at query time" },
+  { role: "Rerank", name: "ms-marco-MiniLM-L-6-v2", note: "Cross-encoder over the top 12 fused hits" },
+  { role: "Generate", name: "optional OpenAI-compatible", note: "Extractive quotes if no key is set" },
+];
+
 export function Home() {
   return (
     <Page>
       <section>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">Research RAG</p>
-        <h1 className="font-serif text-4xl leading-tight tracking-tight text-neutral-950">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+          Research retrieval
+        </p>
+        <h1 className="max-w-2xl font-serif text-4xl leading-[1.15] tracking-tight text-neutral-950 sm:text-5xl">
           A paper assistant that checks its own work.
         </h1>
-        <p className="mt-5 max-w-2xl text-base leading-relaxed text-neutral-700">
+        <p className="mt-6 max-w-2xl text-base leading-relaxed text-neutral-700">
           PaperMind is a retrieval system for academic papers. Retrieval and reranking run entirely on
-          local ONNX models, so the demo works without an OpenAI bill. Generation, citation integrity,
-          and research mode light up when you add any OpenAI-compatible API key.
+          local ONNX models, so the demo works without a generation bill. Chat, citation integrity, and
+          research mode light up when you add any OpenAI-compatible API key.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
@@ -44,6 +60,12 @@ export function Home() {
           >
             Open the library
           </Link>
+          <Link
+            to="/eval"
+            className="border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-950 hover:border-neutral-950"
+          >
+            See the evals
+          </Link>
           <a
             href="https://github.com/sanjitchitturi/papermind"
             className="border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-950 hover:border-neutral-950"
@@ -51,6 +73,15 @@ export function Home() {
             Source on GitHub
           </a>
         </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-4">
+        {STATS.map((stat) => (
+          <div key={stat.label} className="bg-white px-4 py-5">
+            <p className="font-serif text-2xl tracking-tight text-neutral-950">{stat.value}</p>
+            <p className="mt-1 text-xs leading-snug text-neutral-500">{stat.label}</p>
+          </div>
+        ))}
       </section>
 
       <section>
@@ -78,6 +109,34 @@ export function Home() {
               <span className="text-neutral-700">{step.detail}</span>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-serif text-2xl text-neutral-950">Models on the box</h2>
+        <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+          Chosen so the API, including ONNX sessions, fits on a 512 MB Render instance. Weights are int8.
+          Collection names include the embedder and dimension, so a model swap does not mix vector spaces.
+        </p>
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-neutral-950 text-left text-neutral-500">
+                <th className="py-2 pr-4 font-medium">Role</th>
+                <th className="py-2 pr-4 font-medium">Model</th>
+                <th className="py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MODELS.map((row) => (
+                <tr key={row.role} className="border-b border-neutral-200 align-top">
+                  <td className="py-3 pr-4 font-medium text-neutral-950">{row.role}</td>
+                  <td className="py-3 pr-4 font-mono text-xs text-neutral-700">{row.name}</td>
+                  <td className="py-3 text-neutral-600">{row.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
