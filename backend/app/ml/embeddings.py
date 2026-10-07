@@ -43,11 +43,15 @@ class FastEmbedEmbedder:
         self._batch_size = settings.ml_batch_size
         self._lock = threading.Lock()
         self._model = TextEmbedding(
-            f"papermind/{key}", cache_dir=settings.model_cache_dir, threads=settings.ml_threads
+            f"papermind/{key}",
+            cache_dir=settings.model_cache_dir,
+            threads=settings.ml_threads,
+            providers=["CPUExecutionProvider"],
+            cuda=False,
         )
         # Questions repeat a lot (eval runs, retries, the agent re-asking a
         # sub-question), and a query vector is cheap to keep around.
-        self._query_cache = lru_cache(maxsize=512)(self._embed_query_uncached)
+        self._query_cache = lru_cache(maxsize=64)(self._embed_query_uncached)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -100,7 +104,13 @@ class SparseEncoder:
 
         settings = get_settings()
         self._lock = threading.Lock()
-        self._model = SparseTextEmbedding("Qdrant/bm25", cache_dir=settings.model_cache_dir)
+        self._model = SparseTextEmbedding(
+            "Qdrant/bm25",
+            cache_dir=settings.model_cache_dir,
+            threads=settings.ml_threads,
+            providers=["CPUExecutionProvider"],
+            cuda=False,
+        )
 
     def embed_documents(self, texts: list[str]) -> list[SparseVectorData]:
         with self._lock:

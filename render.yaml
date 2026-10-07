@@ -18,7 +18,11 @@ services:
       - key: EMBEDDING_MODEL
         value: arctic-embed-xs-int8
       - key: RERANKER_MODEL
-        value: ms-marco-minilm-l6-int8
+        value: none
+      - key: LOW_MEMORY
+        value: "true"
+      - key: ML_BATCH_SIZE
+        value: "1"
       - key: MODEL_CACHE_DIR
         value: /app/.models
       - key: LLM_API_KEY

@@ -7,7 +7,7 @@ of being hardcoded in individual modules.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     model_cache_dir: str = "./.models"
     ml_threads: int = 1
     ml_batch_size: int = 4
+    # Render free is 512 MB. Two ONNX sessions on top of FastAPI will get
+    # the process killed. Production defaults to embedder-only unless this
+    # is set false on a larger box.
+    low_memory: bool | None = None
 
     # Any OpenAI-compatible chat endpoint works here: OpenAI, Groq, Together,
     # OpenRouter, Gemini's compatibility layer, a local Ollama or vLLM server.
@@ -65,6 +69,15 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     cors_origin_regex: str | None = None
     storage_dir: str = "./storage"
+
+    @model_validator(mode="after")
+    def _fit_small_instances(self):
+        constrained = self.low_memory if self.low_memory is not None else self.environment == "production"
+        if constrained:
+            self.ml_batch_size = min(self.ml_batch_size, 1)
+            self.ml_threads = 1
+            self.reranker_model = "none"
+        return self
 
     @property
     def llm_configured(self) -> bool:

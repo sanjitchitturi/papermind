@@ -46,7 +46,11 @@ def capabilities(session: SessionDep):
         "embedding_description": embed_spec.description if embed_spec else settings.embedding_model,
         "embedding_dim": embed_spec.dim if embed_spec else None,
         "reranker_model": settings.reranker_model,
-        "reranker_description": rerank_spec.description if rerank_spec else settings.reranker_model,
+        "reranker_description": (
+            "disabled (low-memory / 512 MB instance)"
+            if settings.reranker_model in {"none", "off", "disabled", ""}
+            else (rerank_spec.description if rerank_spec else settings.reranker_model)
+        ),
         "llm_configured": llm_available(),
         "llm_model": settings.llm_model if llm_available() else None,
         "llm_host": provider_host() if llm_available() else None,

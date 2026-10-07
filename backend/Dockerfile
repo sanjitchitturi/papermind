@@ -9,7 +9,12 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     MODEL_CACHE_DIR=/app/.models \
     HF_HUB_DISABLE_TELEMETRY=1 \
-    OMP_NUM_THREADS=1
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    MALLOC_ARENA_MAX=2 \
+    ONNXRUNTIME_EXECUTION_PROVIDERS=CPUExecutionProvider
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -21,10 +26,8 @@ COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
 RUN python - <<'PY'
 from app.ml.embeddings import get_embedder, get_sparse_encoder
-from app.ml.reranker import get_reranker
 get_embedder()
 get_sparse_encoder()
-get_reranker()
 print("models cached")
 PY
 
