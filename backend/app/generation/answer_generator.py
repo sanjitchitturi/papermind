@@ -74,12 +74,22 @@ def generate_answer(question: str, passages: list[Passage], temperature: float =
             return GeneratedAnswer(answer=answer, sources=sources, mode="generative")
         except LLMProviderError as exc:
             logger.warning("generation failed, falling back to extractive quotes: %s", exc)
+            return GeneratedAnswer(
+                answer=_extractive(question, sources, provider_failed=True),
+                sources=sources,
+                mode="extractive",
+            )
     return GeneratedAnswer(answer=_extractive(question, sources), sources=sources, mode="extractive")
 
 
-def _extractive(question: str, sources: list[Source]) -> str:
+def _extractive(question: str, sources: list[Source], provider_failed: bool = False) -> str:
+    lead = (
+        "The language model did not respond, so this is an extractive answer: the most relevant passages, quoted."
+        if provider_failed
+        else "No language model is configured, so this is an extractive answer: the most relevant passages, quoted."
+    )
     lines = [
-        "No language model is configured, so this is an extractive answer: the most relevant passages, quoted.",
+        lead,
         f'Question: "{question}"',
         "",
     ]
