@@ -10,7 +10,7 @@ services:
     plan: free
     envVars:
       - key: CORS_ORIGINS
-        value: '["https://papermind-silk.vercel.app"]'
+        value: '["https://thepapermind.vercel.app"]'
       - key: CORS_ORIGIN_REGEX
         value: "https://.*\\.vercel\\.app"
       - key: ENVIRONMENT

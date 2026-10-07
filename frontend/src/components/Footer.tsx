@@ -10,6 +10,9 @@ export function Footer() {
           <a href="https://github.com/sanjitchitturi/papermind" className="hover:text-neutral-950">
             GitHub
           </a>
+          <a href="https://thepapermind.vercel.app" className="hover:text-neutral-950">
+            Live
+          </a>
           <a href="https://papermind-api-laof.onrender.com/docs" className="hover:text-neutral-950">
             API docs
           </a>

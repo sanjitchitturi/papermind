@@ -2,7 +2,7 @@
 
 A retrieval system for research papers that does more than chat with a PDF.
 
-**Live app:** [papermind-silk.vercel.app](https://papermind-silk.vercel.app)
+**Live app:** [thepapermind.vercel.app](https://thepapermind.vercel.app)
 **API:** [papermind-api-laof.onrender.com/docs](https://papermind-api-laof.onrender.com/docs)
 **Source:** [github.com/sanjitchitturi/papermind](https://github.com/sanjitchitturi/papermind)
 
@@ -255,7 +255,7 @@ make test
 
 ## Deployment
 
-- **Frontend:** Vercel, root `frontend/`. Set `VITE_API_BASE_URL` to the API origin.
+- **Frontend:** Vercel, root `frontend/`. Production: [thepapermind.vercel.app](https://thepapermind.vercel.app). Set `VITE_API_BASE_URL` to the API origin.
 - **API:** Render, Docker from `backend/Dockerfile`. Free plan, 512 MB.
 - **Postgres:** Supabase. Use the **session pooler** URI
   (`postgresql+psycopg://postgres.<ref>:...@aws-0-....pooler.supabase.com:5432/postgres`).
@@ -269,7 +269,7 @@ Render env vars:
 DATABASE_URL
 QDRANT_URL
 QDRANT_API_KEY
-CORS_ORIGINS=["https://papermind-silk.vercel.app"]
+CORS_ORIGINS=["https://thepapermind.vercel.app"]
 CORS_ORIGIN_REGEX=https://.*\.vercel\.app
 EMBEDDING_MODEL=arctic-embed-xs-int8
 RERANKER_MODEL=ms-marco-minilm-l6-int8
