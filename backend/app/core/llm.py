@@ -121,7 +121,12 @@ def chat(
     settings = get_settings()
     if system:
         messages = [{"role": "system", "content": system}, *messages]
-    return _create(messages, json_mode=False, **_completion_kwargs(model or settings.llm_model, temperature, max_tokens))
+    try:
+        return _create(messages, json_mode=False, **_completion_kwargs(model or settings.llm_model, temperature, max_tokens))
+    except LLMProviderError:
+        raise
+    except Exception as exc:
+        raise LLMProviderError(f"The LLM provider rejected the request: {exc}") from exc
 
 
 def chat_json(
@@ -141,14 +146,19 @@ def chat_json(
     full = [{"role": "system", "content": system_prompt}, *messages]
     kwargs = _completion_kwargs(model or settings.judge_model, temperature, None)
     try:
-        content = _create(full, json_mode=True, **kwargs)
+        try:
+            content = _create(full, json_mode=True, **kwargs)
+        except LLMProviderError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # A provider that doesn't support response_format returns a 400.
+            # Retry once without it before giving up on structured output.
+            logger.warning("json mode request failed (%s), retrying without response_format", exc)
+            content = _create(full, json_mode=False, **kwargs)
     except LLMProviderError:
         raise
-    except Exception as exc:  # noqa: BLE001
-        # A provider that doesn't support response_format returns a 400.
-        # Retry once without it before giving up on structured output.
-        logger.warning("json mode request failed (%s), retrying without response_format", exc)
-        content = _create(full, json_mode=False, **kwargs)
+    except Exception as exc:
+        raise LLMProviderError(f"The LLM provider rejected the request: {exc}") from exc
     return parse_json_object(content)
 
 

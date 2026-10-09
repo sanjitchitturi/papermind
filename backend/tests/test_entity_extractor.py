@@ -2,7 +2,12 @@ from app.db.models import EntityType
 from app.graph.entity_extractor import extract_entities
 
 
-def test_gazetteer_finds_transformer_and_bleu():
+def _gazetteer_only(monkeypatch):
+    monkeypatch.setattr("app.graph.entity_extractor.llm_available", lambda: False)
+
+
+def test_gazetteer_finds_transformer_and_bleu(monkeypatch):
+    _gazetteer_only(monkeypatch)
     text = (
         "The Transformer uses self-attention and is evaluated with BLEU on the WMT 2014 English-German task. "
         "BERT uses masked language modeling. GPT-3 demonstrates in-context learning."
@@ -15,7 +20,8 @@ def test_gazetteer_finds_transformer_and_bleu():
     assert ("gpt-3", EntityType.model) in found
 
 
-def test_longest_match_wins_over_substring():
+def test_longest_match_wins_over_substring(monkeypatch):
+    _gazetteer_only(monkeypatch)
     text = "We use multi-head attention rather than a single attention head."
     names = [name for name, etype, _ in extract_entities(text) if etype.value == "method"]
     assert "multi-head attention" in names

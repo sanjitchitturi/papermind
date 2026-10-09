@@ -24,10 +24,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
+# Cache both ONNX models. Production still refuses to load the reranker
+# when LOW_MEMORY=true, but a local container can turn it on without a download.
 RUN python - <<'PY'
 from app.ml.embeddings import get_embedder, get_sparse_encoder
+from app.ml.reranker import get_reranker
 get_embedder()
 get_sparse_encoder()
+get_reranker()
 print("models cached")
 PY
 

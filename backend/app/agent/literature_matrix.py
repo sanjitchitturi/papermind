@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.core.llm import chat_json, llm_available
+from app.core.llm import LLMProviderError, chat_json, llm_available
 from app.db.models import EntityType
 from app.graph.entity_extractor import extract_entities
 
@@ -26,17 +26,21 @@ class MatrixRow:
 
 def build_row(paper_id: str, paper_title: str, passages: list[str]) -> MatrixRow:
     if llm_available():
-        result = chat_json(
-            [{"role": "user", "content": EXTRACTION_PROMPT.format(title=paper_title, passages="\n\n".join(passages[:5]))}]
-        )
-        return MatrixRow(
-            paper_title=paper_title,
-            paper_id=paper_id,
-            method=result.get("method", ""),
-            dataset=result.get("dataset", ""),
-            metric_result=result.get("metric_result", ""),
-            limitations=result.get("limitations", ""),
-        )
+        try:
+            result = chat_json(
+                [{"role": "user", "content": EXTRACTION_PROMPT.format(title=paper_title, passages="\n\n".join(passages[:5]))}]
+            )
+        except LLMProviderError:
+            result = {}
+        if result:
+            return MatrixRow(
+                paper_title=paper_title,
+                paper_id=paper_id,
+                method=result.get("method", ""),
+                dataset=result.get("dataset", ""),
+                metric_result=result.get("metric_result", ""),
+                limitations=result.get("limitations", ""),
+            )
     names = {t: [] for t in EntityType}
     for name, etype, _ in extract_entities(" ".join(passages)[:8000]):
         names[etype].append(name)

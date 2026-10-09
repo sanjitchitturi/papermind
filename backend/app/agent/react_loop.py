@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from app.agent.literature_matrix import MatrixRow, build_matrix
 from app.agent.planner import critique_coverage, decompose
-from app.core.llm import chat, llm_available
+from app.core.llm import LLMProviderError, chat, llm_available
 from app.retrieval.hybrid_search import retrieve
 
 MAX_LOOPS = 2
@@ -71,16 +71,28 @@ def run_research_mode(question: str, on_step: Callable[[TraceStep], None] | None
         sub_questions = [missing]
 
     if llm_available():
-        narrative = chat(
-            [{"role": "user", "content": SYNTHESIS_PROMPT.format(question=question, evidence="\n\n".join(evidence_summaries[:24]))}]
-        )
+        try:
+            narrative = chat(
+                [{"role": "user", "content": SYNTHESIS_PROMPT.format(question=question, evidence="\n\n".join(evidence_summaries[:24]))}]
+            )
+        except LLMProviderError:
+            narrative = _retrieval_only(passages_by_paper, evidence_summaries, provider_failed=True)
     else:
-        titles = sorted({title for title, _ in passages_by_paper.values()})
-        narrative = (
-            "No language model is configured, so this is a retrieval-only research pass.\n\n"
-            f"Papers consulted: {', '.join(titles) or 'none'}.\n\n"
-            + "\n\n".join(evidence_summaries[:8])
-        )
+        narrative = _retrieval_only(passages_by_paper, evidence_summaries, provider_failed=False)
     emit("synthesize", "Wrote the review from gathered evidence")
     matrix = build_matrix(passages_by_paper)
     return ResearchResult(narrative=narrative, matrix=matrix, trace=trace)
+
+
+def _retrieval_only(passages_by_paper: dict, evidence_summaries: list[str], provider_failed: bool) -> str:
+    titles = sorted({title for title, _ in passages_by_paper.values()})
+    lead = (
+        "The language model did not respond, so this is a retrieval-only research pass."
+        if provider_failed
+        else "No language model is configured, so this is a retrieval-only research pass."
+    )
+    return (
+        lead
+        + f"\n\nPapers consulted: {', '.join(titles) or 'none'}.\n\n"
+        + "\n\n".join(evidence_summaries[:8])
+    )

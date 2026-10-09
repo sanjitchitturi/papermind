@@ -1,11 +1,15 @@
-.PHONY: backend frontend test seed eval help
+.PHONY: backend frontend test seed eval help infra
 
 help:
+	@echo "make infra     postgres + qdrant"
 	@echo "make backend   uvicorn --reload"
 	@echo "make frontend  vite dev"
 	@echo "make test      ruff + pytest + frontend build"
-	@echo "make seed      ingest eval papers"
+	@echo "make seed      ingest Attention, BERT, and GPT-3"
 	@echo "make eval      retrieval ablations"
+
+infra:
+	cd infra && docker compose up -d postgres qdrant
 
 backend:
 	cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000

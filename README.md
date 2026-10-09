@@ -225,28 +225,54 @@ infra/           local docker-compose (Postgres + Qdrant)
 
 ---
 
-## Running locally
+## Run it
 
-Needs Python 3.12+, Node 20+, Postgres, Qdrant, and (optional) an LLM key.
+Python 3.12+, Node 20+, and Docker. An LLM key is optional. Without one,
+Library, Chat (quoted passages), Graph, and Eval still work. Integrity,
+generated answers, and the written research review need a funded
+OpenAI-compatible key in `LLM_API_KEY` or `OPENAI_API_KEY`.
 
 ```bash
-cp backend/.env.example backend/.env
-# fill DATABASE_URL, QDRANT_URL, optional LLM_API_KEY / OPENAI_API_KEY
+git clone https://github.com/sanjitchitturi/papermind.git
+cd papermind
 
-cd infra && docker compose up -d postgres qdrant
+cp backend/.env.example backend/.env
+# optional: put a key in LLM_API_KEY
+
+make infra
 
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
+make seed
 uvicorn app.main:app --reload
+```
 
+In another terminal:
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend: `http://localhost:5173` (Vite proxies `/api` to `:8000`).
+Open `http://localhost:5173`. Vite proxies `/api` to `:8000`.
+
+What each page needs:
+
+| Page | Without an LLM key | With a working key |
+| --- | --- | --- |
+| Library | Search arXiv, upload a PDF, ingest | same |
+| Chat | Quoted passages, sources, trust score | Cited generated answers |
+| Integrity | Explains that a key is required | Citation verdicts and contradiction scan |
+| Graph | Entities and citation edges from ingest | same |
+| Research | Retrieved passages and a comparison table | Written review plus the table |
+| Eval | Dense, BM25, hybrid, and hybrid+rerank | Generation suite as well |
+
+Locally the MiniLM reranker is on (`LOW_MEMORY=false`). The public Render
+API turns it off so the process fits in 512 MB. Set `LOW_MEMORY=true` only
+if you are reproducing that constraint.
 
 Seed the eval papers and run retrieval ablations:
 

@@ -29,7 +29,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://papermind:papermind@postgres:5432/papermind
       QDRANT_URL: http://qdrant:6333
+      ENVIRONMENT: development
+      LOW_MEMORY: "false"
+      EMBEDDING_MODEL: arctic-embed-xs-int8
+      RERANKER_MODEL: ms-marco-minilm-l6-int8
       LLM_API_KEY: ${LLM_API_KEY:-${OPENAI_API_KEY:-}}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
       CORS_ORIGINS: '["http://localhost:5173"]'
       MODEL_CACHE_DIR: /app/.models
     ports:

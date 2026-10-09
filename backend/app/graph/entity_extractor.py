@@ -5,10 +5,13 @@ latency) and falls back to an LLM pass when one is configured, to catch
 paper-specific names the gazetteer will never have.
 """
 
+import logging
 import re
 from collections import Counter
 
-from app.core.llm import chat_json, llm_available
+from app.core.llm import LLMProviderError, chat_json, llm_available
+
+logger = logging.getLogger(__name__)
 from app.db.models import EntityType
 
 GAZETTEER: dict[str, EntityType] = {
@@ -110,7 +113,12 @@ def extract_entities(text: str) -> list[tuple[str, EntityType, int]]:
             counts[(name, GAZETTEER[name])] += n
 
     if llm_available():
-        for name, entity_type in _llm_extract(haystack[:3500]):
+        try:
+            extra = _llm_extract(haystack[:3500])
+        except LLMProviderError as exc:
+            logger.warning("entity LLM pass skipped: %s", exc)
+            extra = []
+        for name, entity_type in extra:
             key = (name, entity_type)
             counts[key] += max(counts[key], 1)
 
