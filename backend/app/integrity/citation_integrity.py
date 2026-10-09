@@ -1,13 +1,3 @@
-"""
-Citation Integrity Engine: for every in-text citation, extract the claim
-being attributed to the cited work, retrieve evidence from that work if
-it's in the corpus, and judge whether the claim is supported.
-
-Unresolvable citations (cited work not ingested) are recorded as
-unresolved rather than guessed. Precision over recall is the point of
-this feature: a false "supported" is worse than an honest "we couldn't check".
-"""
-
 from uuid import UUID
 
 from sqlmodel import Session, select

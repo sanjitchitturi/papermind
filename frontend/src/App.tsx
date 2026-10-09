@@ -26,7 +26,7 @@ function NotFound() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-24">
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">404</p>
-      <h1 className="mt-3 font-serif text-3xl">That page is not in the library.</h1>
+      <h1 className="mt-3 font-serif text-3xl">This page is not part of PaperMind.</h1>
       <a href="/" className="mt-6 inline-block text-sm underline">
         Back to PaperMind
       </a>

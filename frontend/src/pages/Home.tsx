@@ -1,158 +1,118 @@
 import { Link } from "react-router-dom";
 import { Page } from "../components/ui";
 
-const STATS = [
-  { value: "384-d", label: "Arctic Embed XS, int8 ONNX" },
-  { value: "RRF", label: "Dense + BM25 fused in Qdrant" },
-  { value: "1.00", label: "Hybrid MRR on the seed set" },
-  { value: "512 MB", label: "Live API leaves the reranker off" },
+const FIGURE = [
+  { k: "01", name: "Parse", detail: "Sections, hyphen repair, sentence windows" },
+  { k: "02", name: "Index", detail: "Arctic Embed XS and BM25 in one collection" },
+  { k: "03", name: "Fuse", detail: "Reciprocal rank fusion inside Qdrant" },
+  { k: "04", name: "Rerank", detail: "MiniLM cross-encoder, when memory allows" },
+  { k: "05", name: "Answer", detail: "Cited prose, or the passages themselves" },
 ];
 
-const DIFFERENTIATORS = [
+const WORK = [
   {
-    title: "Hybrid retrieval, with a measured reranker",
-    body: "First-stage search fuses a local dense encoder (Snowflake Arctic Embed XS, int8 ONNX) with BM25 sparse vectors inside Qdrant via reciprocal rank fusion. A MiniLM cross-encoder can rerank the fused candidates. The live API leaves that second model off so the process fits in 512 MB. Locally, and on a larger box, the eval dashboard reports dense, sparse, hybrid, and hybrid+rerank separately.",
+    title: "Hybrid retrieval",
+    body: "A 384-dimensional int8 encoder and BM25 are fused with reciprocal rank fusion. MiniLM reranks the fused list when it is loaded. The evaluation page reports dense, sparse, hybrid, and hybrid plus rerank on the same questions.",
   },
   {
-    title: "Citation Integrity Engine",
-    body: "Most chat-with-PDF tools trust a paper's citations at face value. For every in-text citation, PaperMind extracts the claim being attributed to the cited work, retrieves a passage from that work if it is in the library, and judges whether the claim is supported, overstated, or contradicted. Unresolvable citations are recorded as unresolved rather than guessed.",
+    title: "Citation integrity",
+    body: "For an in-text citation, the attributed claim is extracted and checked against a passage from the cited paper, if that paper is in the library. The verdict is supported, partial, unsupported, contradicted, or unresolved.",
   },
   {
-    title: "Calibrated trust, with abstention",
-    body: "Every answer carries a 0-100 score from retrieval margin, reranker confidence, citation pass rate, and self-consistency. Below a threshold the system says it is not confident instead of answering fluently but wrong. The score breakdown is visible in the UI.",
+    title: "Abstention",
+    body: "Each answer carries a score from retrieval margin, reranker confidence, citation pass rate, and self-consistency. Below the threshold the answer is marked abstained.",
   },
-];
-
-const PIPELINE = [
-  { label: "Parse", detail: "Section detection, header stripping, hyphen repair, sentence-aware chunks" },
-  { label: "Index", detail: "Local dense + BM25 sparse vectors in Qdrant, IDF applied server-side" },
-  { label: "Retrieve", detail: "RRF fusion. Cross-encoder rerank when memory allows" },
-  { label: "Answer", detail: "Cited generation when the LLM call succeeds, quoted passages otherwise" },
-  { label: "Verify", detail: "Citation checks, trust scoring, abstention below threshold" },
-];
-
-const MODELS = [
-  { role: "Dense", name: "snowflake-arctic-embed-xs", note: "23 MB int8, query prefix, cosine ~0.998 vs fp32" },
-  { role: "Sparse", name: "Qdrant/bm25", note: "Term frequencies in the collection; IDF at query time" },
-  { role: "Rerank", name: "ms-marco-MiniLM-L-6-v2", note: "Optional. Off on the 512 MB deploy" },
-  { role: "Generate", name: "gpt-4o-mini or compatible", note: "Quoted passages if the call fails or no key is set" },
 ];
 
 export function Home() {
   return (
     <Page>
       <section>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-          Research retrieval
-        </p>
-        <h1 className="max-w-2xl font-serif text-4xl leading-[1.15] tracking-tight text-neutral-950 sm:text-5xl">
-          A paper assistant that checks its own work.
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">PaperMind</p>
+        <h1 className="max-w-2xl font-serif text-4xl leading-[1.15] tracking-tight text-neutral-950 sm:text-[2.75rem]">
+          Retrieval for papers, with a score that can refuse.
         </h1>
-        <p className="mt-6 max-w-2xl text-base leading-relaxed text-neutral-700">
-          PaperMind is a retrieval system for academic papers. Dense retrieval and BM25 run on local
-          ONNX models. The MiniLM reranker is in the codebase and measured locally; the free API leaves
-          it off. Chat falls back to quoted passages if generation is unavailable. Integrity and research
-          mode need a funded OpenAI-compatible key.
+        <p className="mt-6 max-w-2xl text-[15px] leading-7 text-neutral-700">
+          Search a library with a local dense encoder and BM25. Ask a question and read the passages it
+          used. When a language model is available, the answer is written from those passages and the
+          citations are checked. Otherwise the answer is the passages, quoted.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             to="/search"
             className="border border-neutral-950 bg-neutral-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
           >
-            Open the library
+            Library
+          </Link>
+          <Link
+            to="/chat"
+            className="border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-950 hover:border-neutral-950"
+          >
+            Ask
           </Link>
           <Link
             to="/eval"
             className="border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-950 hover:border-neutral-950"
           >
-            See the evals
+            Evaluation
           </Link>
-          <a
-            href="https://github.com/sanjitchitturi/papermind"
-            className="border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-950 hover:border-neutral-950"
-          >
-            Source on GitHub
-          </a>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-4">
-        {STATS.map((stat) => (
-          <div key={stat.label} className="bg-white px-4 py-5">
-            <p className="font-serif text-2xl tracking-tight text-neutral-950">{stat.value}</p>
-            <p className="mt-1 text-xs leading-snug text-neutral-500">{stat.label}</p>
+      <section>
+        <h2 className="font-serif text-2xl text-neutral-950">Path of a question</h2>
+        <ol className="mt-6 border-t border-neutral-950">
+          {FIGURE.map((step) => (
+            <li key={step.k} className="grid grid-cols-[3rem_7rem_1fr] gap-4 border-b border-neutral-200 py-4 text-sm">
+              <span className="font-serif text-neutral-400">{step.k}</span>
+              <span className="font-medium text-neutral-950">{step.name}</span>
+              <span className="text-neutral-600">{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="grid gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-3">
+        {[
+          ["384-d", "Arctic Embed XS, int8"],
+          ["RRF", "Dense and BM25"],
+          ["1.00", "Hybrid MRR, seed set"],
+        ].map(([value, label]) => (
+          <div key={label} className="bg-white px-5 py-5">
+            <p className="font-serif text-3xl tracking-tight text-neutral-950">{value}</p>
+            <p className="mt-1 text-xs text-neutral-500">{label}</p>
           </div>
         ))}
       </section>
 
       <section>
-        <h2 className="font-serif text-2xl text-neutral-950">What is actually different</h2>
-        <div className="mt-6 flex flex-col gap-4">
-          {DIFFERENTIATORS.map((item, i) => (
-            <div key={item.title} className="border border-neutral-200 p-6">
-              <div className="flex items-baseline gap-3">
-                <span className="font-serif text-sm text-neutral-400">{String(i + 1).padStart(2, "0")}</span>
-                <h3 className="font-serif text-lg text-neutral-950">{item.title}</h3>
-              </div>
-              <p className="mt-3 leading-relaxed text-neutral-700">{item.body}</p>
+        <h2 className="font-serif text-2xl text-neutral-950">What is measured</h2>
+        <div className="mt-6 grid gap-8 sm:grid-cols-3">
+          {WORK.map((item) => (
+            <div key={item.title}>
+              <h3 className="font-serif text-lg text-neutral-950">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">{item.body}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section>
-        <h2 className="font-serif text-2xl text-neutral-950">How a question is answered</h2>
-        <div className="mt-6 flex flex-col">
-          {PIPELINE.map((step, i) => (
-            <div key={step.label} className="flex gap-4 border-t border-neutral-200 py-4 first:border-t-0">
-              <span className="w-6 shrink-0 font-serif text-sm text-neutral-400">{i + 1}</span>
-              <span className="w-24 shrink-0 font-medium text-neutral-950">{step.label}</span>
-              <span className="text-neutral-700">{step.detail}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-2xl text-neutral-950">Models on the box</h2>
-        <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-          Chosen so the API, including ONNX sessions, fits on a 512 MB Render instance. Weights are int8.
-          Collection names include the embedder and dimension, so a model swap does not mix vector spaces.
-        </p>
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-neutral-950 text-left text-neutral-500">
-                <th className="py-2 pr-4 font-medium">Role</th>
-                <th className="py-2 pr-4 font-medium">Model</th>
-                <th className="py-2 font-medium">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MODELS.map((row) => (
-                <tr key={row.role} className="border-b border-neutral-200 align-top">
-                  <td className="py-3 pr-4 font-medium text-neutral-950">{row.role}</td>
-                  <td className="py-3 pr-4 font-mono text-xs text-neutral-700">{row.name}</td>
-                  <td className="py-3 text-neutral-600">{row.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-2xl text-neutral-950">Explore</h2>
-        <div className="mt-6 grid grid-cols-2 gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-3">
+        <h2 className="font-serif text-2xl text-neutral-950">In the library</h2>
+        <div className="mt-6 grid border border-neutral-200 sm:grid-cols-2">
           {[
-            { to: "/search", label: "Library", desc: "Search arXiv, upload a PDF, browse ingested papers" },
-            { to: "/chat", label: "Chat", desc: "Ask questions with sources and a trust breakdown" },
-            { to: "/integrity", label: "Integrity", desc: "Check whether citations hold up" },
-            { to: "/graph", label: "Graph", desc: "Entities and citation edges across the library" },
-            { to: "/research", label: "Research", desc: "Multi-paper review with a visible trace" },
-            { to: "/eval", label: "Eval", desc: "Retrieval ablations, not a single vanity number" },
+            { to: "/search", label: "Library", desc: "arXiv and PDF ingest" },
+            { to: "/chat", label: "Questions", desc: "Passages, citations, trust" },
+            { to: "/integrity", label: "Integrity", desc: "Does the citation hold" },
+            { to: "/graph", label: "Graph", desc: "Entities and citation edges" },
+            { to: "/research", label: "Research", desc: "A question across papers" },
+            { to: "/eval", label: "Evaluation", desc: "Ablations on one question set" },
           ].map((item) => (
-            <Link key={item.to} to={item.to} className="flex flex-col gap-1 bg-white p-5 hover:bg-neutral-50">
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex items-baseline justify-between gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 hover:bg-neutral-50 sm:[&:nth-last-child(-n+2)]:border-b-0 sm:odd:border-r"
+            >
               <span className="font-medium text-neutral-950">{item.label}</span>
               <span className="text-sm text-neutral-500">{item.desc}</span>
             </Link>

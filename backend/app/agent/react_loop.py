@@ -1,10 +1,3 @@
-"""
-Research Mode: decompose a broad question, retrieve evidence for each
-sub-question, self-critique coverage, then synthesize a narrative plus a
-comparison matrix. Every step is recorded so the UI can show the process,
-not just the output.
-"""
-
 from collections.abc import Callable
 from dataclasses import dataclass, field
 

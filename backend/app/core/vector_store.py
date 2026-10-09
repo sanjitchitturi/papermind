@@ -1,19 +1,3 @@
-"""
-Thin wrapper around Qdrant so the rest of the codebase never has to know
-the collection schema or how hybrid search is wired up.
-
-Each point stores two vectors: a dense embedding for semantic similarity
-and a sparse BM25 vector for exact term matching (model names, dataset
-names, acronyms, the things dense models are worst at). The sparse vector
-config uses Qdrant's IDF modifier, so documents carry term frequencies and
-Qdrant applies corpus-level IDF at query time, which is what makes it
-actual BM25 rather than plain term overlap.
-
-The collection name includes the embedding model and dimension, so
-switching models creates a fresh collection instead of mixing vectors from
-two embedding spaces.
-"""
-
 import re
 import threading
 from dataclasses import dataclass

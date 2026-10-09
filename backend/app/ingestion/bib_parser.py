@@ -1,12 +1,3 @@
-"""
-Parses a paper's reference list and finds in-text citations.
-
-This is regex-based on purpose. arXiv papers are inconsistent enough that
-a "good enough, handles the common cases" parser is more maintainable than
-trying to perfectly handle every formatting style. The integrity engine
-only needs most citations to be useful, not all of them.
-"""
-
 import re
 from dataclasses import dataclass
 

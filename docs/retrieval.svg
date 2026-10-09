@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 210" fill="none">
+  <style>
+    text { font-family: "Source Serif 4", Georgia, serif; fill: #0a0a0a; }
+    .k { font-family: Inter, ui-sans-serif, sans-serif; font-size: 11px; }
+    .s { font-family: Inter, ui-sans-serif, sans-serif; font-size: 9px; fill: #525252; }
+  </style>
+  <rect width="980" height="210" fill="#ffffff"/>
+  <line x1="36" y1="78" x2="944" y2="78" stroke="#0a0a0a" stroke-width="1"/>
+  <g>
+    <rect x="48" y="48" width="118" height="60" fill="#ffffff" stroke="#0a0a0a"/>
+    <text class="k" x="107" y="74" text-anchor="middle">PDF / arXiv</text>
+    <text class="s" x="107" y="92" text-anchor="middle">source</text>
+    <rect x="214" y="48" width="118" height="60" fill="#ffffff" stroke="#0a0a0a"/>
+    <text class="k" x="273" y="74" text-anchor="middle">Parse</text>
+    <text class="s" x="273" y="92" text-anchor="middle">section, sentence</text>
+    <rect x="380" y="48" width="140" height="60" fill="#ffffff" stroke="#0a0a0a"/>
+    <text class="k" x="450" y="70" text-anchor="middle">Arctic XS + BM25</text>
+    <text class="s" x="450" y="88" text-anchor="middle">384-d and sparse</text>
+    <rect x="568" y="48" width="100" height="60" fill="#0a0a0a"/>
+    <text class="k" x="618" y="74" text-anchor="middle" fill="#ffffff">RRF</text>
+    <text class="s" x="618" y="92" text-anchor="middle" fill="#d4d4d4">Qdrant</text>
+    <rect x="716" y="48" width="118" height="60" fill="#ffffff" stroke="#0a0a0a" stroke-dasharray="3 2"/>
+    <text class="k" x="775" y="74" text-anchor="middle">MiniLM</text>
+    <text class="s" x="775" y="92" text-anchor="middle">rerank, optional</text>
+    <rect x="48" y="128" width="786" height="36" fill="#ffffff" stroke="#0a0a0a"/>
+    <text class="k" x="441" y="150" text-anchor="middle">Postgres</text>
+  </g>
+  <path d="M166 78 H214 M332 78 H380 M520 78 H568 M668 78 H716" stroke="#0a0a0a" stroke-width="1"/>
+  <path d="M107 108 V128 M273 108 V128 M450 108 V128 M618 108 V128 M775 108 V146" stroke="#0a0a0a" stroke-width="1"/>
+  <text class="s" x="860" y="82">answer</text>
+  <path d="M834 78 H848" stroke="#0a0a0a"/>
+</svg>

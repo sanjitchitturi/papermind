@@ -1,19 +1,10 @@
-"""
-Produces an answer from retrieved passages.
-
-When an LLM is configured, the answer is generated with inline citations
-that map to the numbered sources. When it isn't, we fall back to an
-extractive answer: the highest-scoring passages, quoted, with enough
-context that the user can still use the system as a search engine.
-"""
-
 import logging
 from dataclasses import dataclass
 
 from app.core.llm import LLMProviderError, chat, llm_available
+from app.retrieval.hybrid_search import Passage
 
 logger = logging.getLogger(__name__)
-from app.retrieval.hybrid_search import Passage
 
 ANSWER_SYSTEM = """You are a research assistant answering questions from academic papers.
 Use only the numbered passages. Cite them inline as [1], [2], matching the passage numbers.

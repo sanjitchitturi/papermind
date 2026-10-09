@@ -1,12 +1,3 @@
-"""
-Turns a PDF on disk into pages of cleaned text plus a section map.
-
-Papers are not formatted consistently enough to parse perfectly, so this
-leans on common heading patterns rather than trying to be a full
-document-structure parser. Offsets are tracked in the cleaned concatenated
-text so chunking can still report which section and page a chunk came from.
-"""
-
 import re
 from dataclasses import dataclass, field
 

@@ -1,16 +1,3 @@
-"""
-Provider-agnostic LLM client. Anything that speaks the OpenAI chat
-completions API works: OpenAI itself, Groq, Together, OpenRouter, Gemini's
-compatibility endpoint, or a local Ollama/vLLM server. Every LLM call in
-the codebase goes through here so retries, timeouts, JSON parsing and
-model quirks are handled in one place.
-
-When no API key is configured the rest of the system degrades instead of
-failing: retrieval and reranking still run locally, chat falls back to an
-extractive answer, and LLM-only features raise LLMUnavailable, which the
-API turns into a clear 503.
-"""
-
 import json
 import logging
 import re

@@ -60,9 +60,9 @@ export function EvalDashboard() {
   return (
     <Page wide>
       <div className="flex items-start justify-between gap-4">
-        <PageHeader title="Eval dashboard">
-          Retrieval is scored as four ablations on the same questions: dense only, BM25 only, hybrid RRF,
-          then hybrid plus the cross-encoder. That is the evidence that each stage does work.
+        <PageHeader title="Evaluation">
+          The same questions are scored four ways: dense, BM25, hybrid fusion, and hybrid plus the
+          cross-encoder. Generation is a separate run and needs a language model.
         </PageHeader>
         <div className="flex shrink-0 gap-2">
           <Button variant="secondary" onClick={() => trigger("retrieval")} disabled={running}>

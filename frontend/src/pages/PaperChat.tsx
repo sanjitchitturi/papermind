@@ -45,9 +45,9 @@ export function PaperChat() {
 
   return (
     <Page>
-      <PageHeader title="Chat">
-        Scoped to one paper or the whole library. Retrieval is local. If no LLM key is configured, answers
-        are extractive quotes from the top passages rather than generated prose.
+      <PageHeader title="Questions">
+        One paper, or the whole library. The passages are retrieved locally. A language model writes the
+        answer when it responds. Otherwise the answer is those passages, quoted.
       </PageHeader>
 
       <Select value={paperId} onChange={(e) => setPaperId(e.target.value)} aria-label="Paper scope">

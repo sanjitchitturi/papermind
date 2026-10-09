@@ -84,9 +84,9 @@ export function KnowledgeGraph() {
   return (
     <div className="flex h-[calc(100vh-9rem)] flex-col">
       <div className="px-6 pt-6">
-        <PageHeader title="Knowledge graph">
-          Papers (filled) link to shared entities (outline) and to each other when a bibliography entry
-          resolves to another paper in the library.
+        <PageHeader title="Graph">
+          Filled nodes are papers. Outline nodes are methods, datasets, and models shared across the
+          library. An edge means a bibliography entry resolved to another paper here.
         </PageHeader>
       </div>
       {graph.nodes.length === 0 ? (

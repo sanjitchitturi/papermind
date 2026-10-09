@@ -1,9 +1,3 @@
-"""
-FastAPI entrypoint. Wires route modules, runs migrations, recovers jobs
-interrupted by a process restart, and warms the local ONNX models so the
-first real request isn't a 30-second download.
-"""
-
 import logging
 from contextlib import asynccontextmanager
 

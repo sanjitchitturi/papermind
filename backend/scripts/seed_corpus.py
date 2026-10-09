@@ -1,5 +1,3 @@
-"""Ingest the seed papers listed in eval_dataset.json, synchronously."""
-
 import json
 import sys
 from pathlib import Path

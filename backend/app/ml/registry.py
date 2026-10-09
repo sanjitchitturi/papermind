@@ -1,13 +1,3 @@
-"""
-Registry of the local models PaperMind can run.
-
-Everything here is an int8-quantized ONNX export served through fastembed's
-onnxruntime backend. Quantization cuts weight memory roughly 4x compared to
-fp32 (23 MB instead of 90 MB per model) while keeping embeddings at ~0.998
-cosine similarity to the full-precision outputs, which is what lets the whole
-retrieval stack fit in a 512 MB container next to the API process.
-"""
-
 from dataclasses import dataclass
 
 from fastembed import TextEmbedding

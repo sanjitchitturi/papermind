@@ -1,18 +1,3 @@
-"""
-Cross-encoder reranking.
-
-A bi-encoder (the dense embedder) scores query and passage independently,
-which is what makes it fast enough for first-stage retrieval over the whole
-corpus. A cross-encoder reads the query and passage together, so it catches
-things like negation and which entity a sentence is actually about, at the
-cost of one forward pass per candidate. Running it only on the top ~12
-fused candidates keeps that cost bounded.
-
-MS MARCO cross-encoders output an unbounded relevance logit. The sigmoid of
-that logit is used downstream as a rough probability that the passage is
-relevant, and feeds the trust score.
-"""
-
 import math
 import threading
 from typing import Protocol

@@ -1,12 +1,3 @@
-"""
-Orchestrates ingestion of one paper: parse, chunk, parse bibliography,
-embed, write to Postgres and Qdrant, then extract entities and link
-citation edges into the knowledge graph.
-
-Runs inside a JobContext so the frontend can poll progress instead of
-needing a websocket or a separate task queue.
-"""
-
 import logging
 from uuid import uuid4
 

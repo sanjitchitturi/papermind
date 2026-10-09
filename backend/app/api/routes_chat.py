@@ -1,5 +1,3 @@
-"""Question answering: retrieve, rerank, generate or extract, verify, score."""
-
 import json
 import time
 

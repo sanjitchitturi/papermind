@@ -1,13 +1,3 @@
-"""
-Eval harness.
-
-Retrieval eval is local and cheap: it runs four ablations (dense, sparse,
-hybrid, hybrid+rerank) against the same questions so the dashboard can
-show that each stage actually moves the metric, rather than asserting it.
-
-Generation eval is optional and only runs when an LLM is configured.
-"""
-
 import json
 import logging
 from pathlib import Path

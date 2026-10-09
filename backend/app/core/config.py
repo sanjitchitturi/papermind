@@ -1,9 +1,3 @@
-"""
-Central place for environment-driven settings. Everything that differs
-between local dev, CI, and the deployed environment is read here instead
-of being hardcoded in individual modules.
-"""
-
 from functools import lru_cache
 from typing import Literal
 

@@ -85,8 +85,8 @@ export function Search() {
   return (
     <Page>
       <PageHeader title="Library">
-        Search arXiv or drop a PDF. Ingestion parses sections, chunks at sentence boundaries, and indexes
-        dense plus BM25 vectors locally. Duplicate arXiv ids are skipped.
+        Search arXiv or add a PDF. Each paper is split by section and sentence, then indexed with a dense
+        vector and BM25. An arXiv id already in the library is skipped.
       </PageHeader>
 
       <ErrorText error={error} />

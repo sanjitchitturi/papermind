@@ -3,11 +3,11 @@ import { NavLink } from "react-router-dom";
 
 const LINKS = [
   { to: "/search", label: "Library" },
-  { to: "/chat", label: "Chat" },
+  { to: "/chat", label: "Questions" },
   { to: "/integrity", label: "Integrity" },
   { to: "/graph", label: "Graph" },
   { to: "/research", label: "Research" },
-  { to: "/eval", label: "Eval" },
+  { to: "/eval", label: "Evaluation" },
 ];
 
 export function NavBar() {

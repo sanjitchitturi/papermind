@@ -1,13 +1,3 @@
-"""
-Finds pairs of claims from different papers that appear to be about the
-same topic but disagree.
-
-Approach: extract atomic claims, embed them with the local dense model,
-and only run the LLM NLI judge on pairs whose cosine similarity is high
-enough to plausibly be about the same thing. Without that filter this
-would be all-pairs across every claim, which gets expensive fast.
-"""
-
 from itertools import combinations
 from uuid import UUID
 

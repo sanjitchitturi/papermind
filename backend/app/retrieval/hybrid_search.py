@@ -1,13 +1,3 @@
-"""
-Hybrid retrieval: dense + BM25 fused with reciprocal rank fusion, then
-cross-encoder reranking of the fused candidates.
-
-Query rewriting is optional and only runs when an LLM is configured. The
-local path (no API key) still produces a ranked list, which is what lets
-the demo work on a free-tier box with no secrets besides the ones needed
-to host it.
-"""
-
 from dataclasses import dataclass
 
 from app.core.config import get_settings
@@ -145,7 +135,6 @@ def _to_passage(hit: Hit) -> Passage:
     )
 
 
-# Kept so existing eval code that imported these names still compiles during the rewrite.
 def sparse_only(question: str, limit: int = 24, paper_ids: list[str] | None = None) -> list[Hit]:
     sparse = get_sparse_encoder().embed_query(question)
     return sparse_search(sparse, limit=limit, paper_ids=paper_ids)

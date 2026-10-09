@@ -1,5 +1,3 @@
-"""Read-side queries over the knowledge graph, including the payload the frontend visualization consumes."""
-
 from uuid import UUID
 
 from sqlmodel import Session, select

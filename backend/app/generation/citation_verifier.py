@@ -1,13 +1,3 @@
-"""
-Checks that a generated answer's citations actually support the claims
-they are attached to. Runs after generation, on the model's own output,
-so it catches the common failure where a model cites a real passage but
-mischaracterizes it.
-
-All cited sentences go in one JSON judge call rather than one call per
-citation, which is both cheaper and more consistent.
-"""
-
 import re
 from dataclasses import dataclass
 

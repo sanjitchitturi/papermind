@@ -1,9 +1,3 @@
-"""
-Wraps the arxiv.org API for search and for fetching a specific paper by
-id, then downloads the PDF so the rest of ingestion can treat it the same
-way as an uploaded file.
-"""
-
 import os
 import re
 from dataclasses import dataclass

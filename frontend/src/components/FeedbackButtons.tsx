@@ -5,9 +5,6 @@ interface Props {
   answerId: string;
 }
 
-// Thumbs up/down feeds the feedback loop described in the plan: a
-// thumbs-down on a high-trust answer gets flagged server-side as a
-// candidate regression case for the eval dataset.
 export function FeedbackButtons({ answerId }: Props) {
   const [submitted, setSubmitted] = useState<"up" | "down" | null>(null);
 

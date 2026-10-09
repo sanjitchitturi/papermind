@@ -12,9 +12,6 @@ const KIND_LABELS: Record<string, string> = {
   synthesize: "Synthesized answer",
 };
 
-// Collapsed by default. This is meant to be the "look, the agent is
-// actually reasoning" moment in a demo, not something that clutters the
-// page on every page load.
 export function ReasoningTrace({ trace }: Props) {
   const [expanded, setExpanded] = useState(false);
 

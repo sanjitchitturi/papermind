@@ -1,12 +1,3 @@
-"""
-Section-aware chunking with sentence-boundary cuts.
-
-Plain fixed-size windows happily split a sentence (or a section heading)
-across two chunks, which hurts both retrieval and citation. We chunk
-inside each detected section, walk by sentences, and only fall back to
-a word window if a single sentence is itself longer than the budget.
-"""
-
 from dataclasses import dataclass
 
 from app.core.config import get_settings

@@ -1,17 +1,3 @@
-"""
-Background job runner.
-
-Long-running work (ingestion, citation integrity checks, contradiction
-scans, eval runs) runs on a single worker thread and reports progress
-through a row in the jobs table, which the frontend polls.
-
-One worker on purpose: the deployment target is a 0.1 CPU / 512 MB
-container, and two ingestions at once would only compete for the same CPU
-while doubling peak memory. A real multi-instance deployment would swap
-this for a proper queue (Redis + RQ, or Postgres SKIP LOCKED), the job
-table and the JobContext interface would stay the same.
-"""
-
 import json
 import logging
 from collections.abc import Callable

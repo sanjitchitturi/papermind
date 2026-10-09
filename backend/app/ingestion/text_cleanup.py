@@ -1,9 +1,3 @@
-"""
-PDF text is noisy: hyphenated line breaks, running headers, page numbers,
-and ligatures all leak into chunks if you skip this step. Cleaning here,
-once, is cheaper than trying to make retrieval robust to every artifact.
-"""
-
 import re
 import unicodedata
 

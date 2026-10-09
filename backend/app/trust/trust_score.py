@@ -1,13 +1,3 @@
-"""
-Turns several independent signals into one 0-100 trust score, and decides
-whether the system should abstain.
-
-None of these signals is reliable alone. Combined they catch more failure
-modes than any one of them would: a fluent answer that misquotes its
-sources, a fluent answer retrieved from the wrong paper, a fluent answer
-the model itself is unstable on.
-"""
-
 from dataclasses import asdict, dataclass
 
 from app.core.config import get_settings

@@ -1,13 +1,3 @@
-"""
-Builds the knowledge graph for a paper: extracts entities, upserts them
-into a corpus-level entity table (so "BERT" is one node no matter how many
-papers mention it), and records citation edges to other papers already in
-the library.
-
-Matching cited papers tries the resolved arXiv id first, then a
-normalized title / first-author heuristic against bibliography text.
-"""
-
 import re
 from uuid import UUID
 

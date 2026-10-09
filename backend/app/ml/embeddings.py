@@ -1,16 +1,3 @@
-"""
-Dense and sparse text encoders.
-
-Dense: a small local ONNX model by default (see registry.py), or any
-OpenAI-compatible embeddings endpoint when EMBEDDING_MODEL is set to
-"openai/<model>". Sparse: BM25 term weights from fastembed, with IDF applied
-server-side by Qdrant.
-
-Inference is serialized behind a lock. On a 0.1 CPU container running
-two forward passes at once doesn't make anything faster, it only stacks
-activation memory, which is what gets a free-tier instance OOM-killed.
-"""
-
 import threading
 from dataclasses import dataclass
 from functools import lru_cache

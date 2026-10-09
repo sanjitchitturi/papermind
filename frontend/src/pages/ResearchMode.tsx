@@ -25,9 +25,9 @@ export function ResearchMode() {
 
   return (
     <Page wide>
-      <PageHeader title="Research mode">
-        A broad question is decomposed, retrieved across papers, critiqued for coverage, then synthesized
-        into a review plus a comparison table. The trace is visible.
+      <PageHeader title="Research">
+        The question is split, retrieved across the library, and returned as a short review with a
+        comparison table. The steps are listed with the result.
       </PageHeader>
       <div className="flex gap-2">
         <Input

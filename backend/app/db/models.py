@@ -1,16 +1,3 @@
-"""
-SQLModel table definitions.
-
-Vectors live in Qdrant. Postgres holds everything needed to reason about
-relationships between papers, claims and entities: the bibliography,
-citation checks, contradictions, and the knowledge graph adjacency. Keeping
-the graph as plain tables (instead of a separate graph database) is a
-deliberate scope decision, the corpus sizes this targets are small enough
-that adjacency queries plus in-process traversal are plenty fast.
-
-Schema changes go through Alembic migrations in backend/migrations.
-"""
-
 import enum
 from datetime import UTC, datetime
 from uuid import UUID, uuid4

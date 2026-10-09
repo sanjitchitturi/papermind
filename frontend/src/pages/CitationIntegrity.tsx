@@ -60,8 +60,8 @@ export function CitationIntegrity() {
   return (
     <Page>
       <PageHeader title="Citation integrity">
-        For each in-text citation, extract the attributed claim, retrieve evidence from the cited paper
-        if it is in the library, and judge support. Needs an LLM key.
+        For each in-text citation, the attributed claim is compared with a passage from the cited paper,
+        when that paper is in the library. This check needs a language model.
       </PageHeader>
       <ErrorText error={error} />
 

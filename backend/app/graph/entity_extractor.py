@@ -1,18 +1,11 @@
-"""
-Extracts named methods, datasets, metrics, models and tasks from a paper.
-Prefers a local gazetteer of well-known ML entities (no LLM, no cost, no
-latency) and falls back to an LLM pass when one is configured, to catch
-paper-specific names the gazetteer will never have.
-"""
-
 import logging
 import re
 from collections import Counter
 
 from app.core.llm import LLMProviderError, chat_json, llm_available
+from app.db.models import EntityType
 
 logger = logging.getLogger(__name__)
-from app.db.models import EntityType
 
 GAZETTEER: dict[str, EntityType] = {
     # methods
