@@ -1,0 +1,40 @@
+# Python
+backend/.venv/
+backend/:memory:.ses
+__pycache__/
+*.pyc
+backend/storage/
+backend/.models/
+.pytest_cache/
+.ruff_cache/
+.devdata/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js
+
+# Env files
+.env
+.env.local
+*.env.local
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local data and tooling
+*.db
+*.db-shm
+*.db-wal
+**/.venv/
+**/.cache/
+**/test-results/
+**/playwright-report/
+
+# Task scratch files
+work/
+work_*.py
