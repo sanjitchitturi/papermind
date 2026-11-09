@@ -1,0 +1,107 @@
+import re
+from dataclasses import dataclass, field
+
+import pymupdf as fitz
+
+from app.core.config import get_settings
+from app.ingestion.text_cleanup import clean_page_text, drop_repeating_headers, finalize_document
+
+SECTION_HEADING_PATTERN = re.compile(
+    r"^\s*(?:\d+(?:\.\d+)*\.?\s+)?("
+    r"abstract|introduction|related work|background|preliminaries|"
+    r"method(?:ology|s)?|approach|model(?:\s*architecture)?|"
+    r"experiments?|evaluation|results?|"
+    r"discussion|limitations|conclusion[s]?|future work|"
+    r"acknowledg(?:e)?ments?|references|bibliography|appendix"
+    r")\b.*$",
+    re.IGNORECASE,
+)
+
+SECTION_ALIASES = {
+    "bibliography": "references",
+    "methods": "method",
+    "methodology": "method",
+    "experiment": "experiments",
+    "result": "results",
+    "conclusions": "conclusion",
+    "acknowledgement": "acknowledgments",
+    "acknowledgements": "acknowledgments",
+}
+
+
+@dataclass
+class ParsedPage:
+    page_number: int
+    text: str
+
+
+@dataclass
+class ParsedDocument:
+    pages: list[ParsedPage]
+    full_text: str
+    # (section_name, start_char_offset) in full_text, in order
+    section_offsets: list[tuple[str, int]]
+    # start_char_offset of each page in full_text
+    page_offsets: list[int] = field(default_factory=list)
+
+
+def parse_pdf(path: str, max_pages: int | None = None) -> ParsedDocument:
+    doc = fitz.open(path)
+    try:
+        page_count = doc.page_count
+        if max_pages is not None:
+            if page_count > max_pages:
+                raise ValueError(f"PDF has {page_count} pages; the limit is {max_pages}.")
+        raw_pages = []
+        extracted = 0
+        for i in range(page_count):
+            text = doc[i].get_text("text")
+            extracted += len(text)
+            if extracted > get_settings().max_extracted_chars:
+                raise ValueError("PDF text exceeds extraction limit.")
+            raw_pages.append(clean_page_text(text))
+    finally:
+        doc.close()
+
+    cleaned_pages = [finalize_document(page) for page in drop_repeating_headers(raw_pages)]
+    pages = [ParsedPage(page_number=i + 1, text=text) for i, text in enumerate(cleaned_pages)]
+
+    page_offsets: list[int] = []
+    section_offsets: list[tuple[str, int]] = [("preamble", 0)]
+    seen_sections: set[str] = set()
+    offset = 0
+    for page in pages:
+        page_offsets.append(offset)
+        for line in page.text.splitlines(keepends=True):
+            stripped = line.strip()
+            match = SECTION_HEADING_PATTERN.match(stripped)
+            if match and len(stripped) < 80:
+                name = SECTION_ALIASES.get(match.group(1).lower(), match.group(1).lower())
+                if name not in seen_sections:
+                    section_offsets.append((name, offset))
+                    seen_sections.add(name)
+            offset += len(line)
+        offset += 1
+    # Offsets and text must refer to exactly the same normalized representation.
+    full_text = "\n".join(page.text for page in pages)
+    return ParsedDocument(pages=pages, full_text=full_text, section_offsets=section_offsets, page_offsets=page_offsets)
+
+
+def section_for_offset(section_offsets: list[tuple[str, int]], char_offset: int) -> str:
+    current = section_offsets[0][0]
+    for name, start in section_offsets:
+        if start <= char_offset:
+            current = name
+        else:
+            break
+    return current
+
+
+def page_for_offset(page_offsets: list[int], char_offset: int) -> int:
+    page = 1
+    for i, start in enumerate(page_offsets):
+        if start <= char_offset:
+            page = i + 1
+        else:
+            break
+    return page
